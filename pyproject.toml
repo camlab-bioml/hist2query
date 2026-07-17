@@ -1,7 +1,7 @@
 [project]
 name = "hist2query"
 dynamic = ["version"]
-description = "Query any H&E patch against TCGA UNI embeddings using FAISS."
+description = "Query any H&E patch against TCGA UNI2 embeddings using FAISS."
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
 authors = [

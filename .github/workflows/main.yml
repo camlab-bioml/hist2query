@@ -29,4 +29,4 @@ jobs:
         run: hist2query -v
       - name: Run pytest for hist2query
         shell: bash -l {0}
-        run: pytest --headless --cov=hist2query
+        run: pytest tests/ --cov=hist2query
