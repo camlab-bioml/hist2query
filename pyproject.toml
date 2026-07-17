@@ -1,0 +1,65 @@
+[project]
+name = "hist2query"
+dynamic = ["version"]
+description = "Query any H&E patch against TCGA UNI embeddings using FAISS."
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+authors = [
+  { name = "Matthew Watson", email = "mwatson@lunenfeld.ca" }]
+
+license = { file = "LICENSE.md" }
+keywords = ["foundation-model", "histopathology", "server", "TCGA-UNI", "faiss"]
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13"]
+
+dependencies = [
+    "faiss-gpu",
+    "fastapi",
+    "fastparquet",
+    "h5py",
+    "httpx2",
+    "huggingface_hub",
+    "networkx",
+    "numpy",
+    "pandas",
+    "python-multipart",
+    "requests",
+    "torch",
+    "timm",
+    "uni @ git+https://github.com/mahmoodlab/UNI.git",
+    "uvicorn"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov"]
+
+[project.urls]
+Homepage = "https://github.com/camlab-bioml/hist2query"
+Issues = "https://github.com/camlab-bioml/hist2query/issues"
+Source = "https://github.com/camlab-bioml/hist2query"
+
+[project.scripts]
+hist2query = "hist2query.main:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hist2query*"]
+
+[tool.setuptools.package-data]
+hist2query = ["*.json", "*.pkl"]
+
+[tool.setuptools.dynamic]
+version = {attr = "hist2query._version.__version__"}
+
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"

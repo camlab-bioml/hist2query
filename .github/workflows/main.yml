@@ -1,0 +1,32 @@
+name: hist2query
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: hist2query test on ${{ matrix.os }} with ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - if: runner.os == 'Linux'
+        run: sudo apt-get -y update && sudo apt-get install -y libgl1-mesa-dev libvips-dev build-essential cmake
+      - name: Install hist2query through pip after dependencies
+        run: pip install -e .["dev"]
+      - name: Check installed hist2query version
+        run: hist2query -v
+      - name: Run pytest for hist2query
+        shell: bash -l {0}
+        run: pytest --headless --cov=hist2query
