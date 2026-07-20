@@ -10,6 +10,16 @@ index using subsampling of the entire dataset
 - `add`: Embed embeddings from the same dataset into a trained index for fast lookup with matched metadata in parquet format
 - `serve`: deploy a `fastAPI` instance to serve query results from any application
 
+## Getting started
+
+**NOTE**: The UNI2 foundation model hosted on huggingface: https://huggingface.co/MahmoodLab/UNI2-h
+is gated, so users will need to have a registered account and accept the terms of use before installation. 
+Once accepted, users should generate and set the `HF_TOKEN` env variable before
+installation. 
+
+```commandline
+export HF_TOKEN="your_hf_token"
+```
 
 ## Installation
 
@@ -89,3 +99,21 @@ if resp['url']:
     frame_results['url'] = resp['slide'].map(resp['url'])
 ```
 
+## Docker
+
+The `hist2query` fastAPI server can be run through Docker. To enable the container
+to access the UNI2 hf model, deployment requires either:
+
+- passing a hf token as an environment variable `HF_TOKEN` (**RECOMMENDED**):
+```commandline
+export HF_TOKEN="your_hf_token"
+docker run -p 7000:7000 -v /home/:/home/ -e HF_TOKEN=$HF_TOKEN hist2query:latest hist2query serve -hs 0.0.0.0
+```
+
+- mounting a local hf cache that contains the model, pre-downloaded:
+```commandline
+docker run -p 7000:7000 -v /home/:/home/ -v ~/.cache/huggingface:/root/.cache/huggingface hist2query:latest hist2query serve -hs 0.0.0.0
+```
+
+**Importantly**, the `-hs` host option should be set to `0.0.0.0`
+for access outside the container. Currently, the container exposes two ports, 6000 and 7000. 
