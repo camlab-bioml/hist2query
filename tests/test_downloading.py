@@ -3,7 +3,7 @@ from unittest.mock import patch
 from hist2query.process.download import (
     get_hf_projects,
     process_tcga_slide,
-    subsample_slides_by_project)
+    subsample_slides_by_project, download_hf_file)
 
 @patch("hist2query.process.download.list_repo_files")
 def test_tcga_uni_projects(mock_list_repo_files):
@@ -21,6 +21,17 @@ def test_tcga_uni_projects(mock_list_repo_files):
     assert len(project_files) == 2
     assert 'TCGA-UVM' not in project_files.keys()
 
+@patch("hist2query.process.download.hf_hub_download")
+def test_basic_download(mock_hf_download, get_current_dir):
+    mock_hf_download.return_value =  os.path.join(get_current_dir, 'fixtures',
+                                                'TCGA-VD-A8KA-01Z-00-DX1.h5')
+
+    hf_path, local_path = download_hf_file('TCGA-VD-A8KA-01Z-00-DX1.h5')
+    assert hf_path == 'TCGA-VD-A8KA-01Z-00-DX1.h5'
+    assert local_path == os.path.join(get_current_dir, 'fixtures',
+                                                'TCGA-VD-A8KA-01Z-00-DX1.h5')
+
+
 @patch("hist2query.process.download.download_hf_file")
 def test_processing_tcga_slide(mock_tcga_slide, get_current_dir):
 
@@ -32,6 +43,14 @@ def test_processing_tcga_slide(mock_tcga_slide, get_current_dir):
     assert slide_info['project'] == "TCGA_BRCA"
     assert slide_info['embeddings'].shape == (200, 1536)
     assert slide_info['coords'].shape == (200, 2)
+
+@patch("hist2query.process.download.download_hf_file")
+def test_processing_tcga_slide_malformed(mock_tcga_slide, get_current_dir):
+
+    # mock: if the download doesn't return a valid download, then no processing happens
+    mock_tcga_slide.return_value = (None, None)
+    assert process_tcga_slide("TCGA_BRCA/features/TCGA-VD-A8KA-01Z-00-DX1.h5", "fake/repo",
+                                    "fake_outdir", 200, False, False) is None
 
 def test_downsample_project_slide_lists():
     slide_lists = {"TCGA_BRCA": ["slide_brca"] * 400,

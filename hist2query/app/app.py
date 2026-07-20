@@ -1,23 +1,37 @@
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional, Annotated
 from pathlib import Path
 import pickle
 import io
 import os
 from collections.abc import Callable
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, Depends
 import torch
 import timm
 import faiss
 import pandas as pd
 import numpy as np
+from pydantic import BaseModel
 from timm.data import resolve_data_config
 from timm.data.transforms_factory import create_transform
 import torch.nn.functional as tf
 import torchvision
 from hist2query.app.utils import preprocess_tiles, make_tiles
 
-TCGA_RESPONSE_COL_HEADERS = ['project', 'slide', 'x', 'y', 'url', 'similarity']
+TCGA_RESPONSE_COL_HEADERS = ['project', 'slide', 'x', 'y', 'similarity']
+
+class SearchRequest(BaseModel):
+    # set the default query parameters
+    k: Optional[int] = 100
+    url: Optional[bool] = True
+
+    @classmethod
+    def as_form(
+        cls,
+        k: Optional[int] = Form(100),
+        url: Optional[bool] = Form(True)):
+
+        return cls(k=k, url=url)
 
 def load_uni_model(model_name: str="hf-hub:MahmoodLab/UNI2-h") -> \
         [timm.models.vision_transformer.VisionTransformer, torchvision.transforms.transforms.Compose, str]:
@@ -73,7 +87,6 @@ def create_app(model_loader: Callable[[], Tuple[timm.models.vision_transformer.V
                                "tcga_uni_slide_filenames.pkl"), "rb") as slide_names_open:
             # use the pkl as a package data file and map the slide URLs to avoid nested per request GDC portal API calls
             app.state.tcga_uni_slide_filenames = pickle.load(slide_names_open)
-            app.state.metadata['url'] = app.state.metadata['slide'].map(app.state.tcga_uni_slide_filenames)
 
         yield
 
@@ -81,11 +94,10 @@ def create_app(model_loader: Callable[[], Tuple[timm.models.vision_transformer.V
 
     @app.post("/search")
     async def search(
-            # TODO: convert arguments to pydantic base model with optional
             patch: UploadFile = File(...),
-            k: int = Form(...),
-            url: bool = Form(...)):
-        
+            # search parameters are optional
+            params: SearchRequest = Depends(SearchRequest.as_form)):
+
         patch_bytes = await patch.read()
 
         arr = np.load(io.BytesIO(patch_bytes))
@@ -107,14 +119,16 @@ def create_app(model_loader: Callable[[], Tuple[timm.models.vision_transformer.V
 
         embedding = (embedding.unsqueeze(0).cpu().numpy().astype("float32"))
 
-        scores, indices = app.state.index.search(embedding, k)
+        scores, indices = app.state.index.search(embedding, params.k)
 
-        # TODO: return the patches and URLs as separate keys in the response?
+        resp = {'hits': None, 'url': None}
         results = app.state.metadata.iloc[indices[0]]
         results['similarity'] = scores[0]
-        # by default, the URL is provided
-        if not url:
-            results['url'] = "NA"
-        return results[TCGA_RESPONSE_COL_HEADERS].to_dict(orient="records")
+        resp['hits'] = results[TCGA_RESPONSE_COL_HEADERS].to_dict(orient="records")
+        # Add a URL per slide if requested, keep as separate key in the response to avoid redundant data packets
+        if params.url:
+            resp['url'] = {key: value for key, value in app.state.tcga_uni_slide_filenames.items()
+                           if key in results['slide'].unique().tolist()}
+        return resp
 
     return app

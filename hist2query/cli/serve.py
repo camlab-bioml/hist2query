@@ -7,20 +7,20 @@ from hist2query.app.app import (
 
 def configure_parser(parser):
 
-    parser.add_argument(
-        "--model",default="hf-hub:MahmoodLab/UNI2-h",
+    parser.add_argument('-md', "--model", default="hf-hub:MahmoodLab/UNI2-h",
         help="UNI model name or path")
 
-    parser.add_argument("--index", required=True, help="Path to FAISS index")
+    parser.add_argument('-i', "--index", required=True, help="Path to FAISS index")
 
-    parser.add_argument("--metadata", required=True,
+    parser.add_argument('-m', "--metadata", required=True,
         help="Path to metadata parquet file matching the --index.")
 
-    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument('-hs', "--host", default="127.0.0.1")
 
-    parser.add_argument("--port", default=7000, type=int)
+    parser.add_argument('-p', "--port", default=7000, type=int)
     
-    parser.add_argument("--workers", default=1, type=int)
+    parser.add_argument('-w', "--workers", default=1, type=int,
+        help="Number of workers to use for fastAPI.")
 
     parser.set_defaults(func=run)
 

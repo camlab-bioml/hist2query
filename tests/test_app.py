@@ -1,7 +1,8 @@
 import io
+from unittest.mock import patch, Mock
 from typing import Union
 import numpy as np
-from unittest.mock import patch, Mock
+import pandas as pd
 from hist2query.app.app import load_uni_model
 from hist2query.cli.serve import run
 
@@ -48,10 +49,12 @@ def test_tcga_uni_search_post(client):
 
     assert response.status_code == 200
     response_data = response.json()
-    assert len(response_data) == 10
-    assert all('project' in elem for elem in response_data)
-    assert all('url' in elem for elem in response_data)
-    assert all(elem['url'] != "NA" for elem in response_data)
+    assert 'hits' in response_data
+    assert 'url' in response_data
+    assert len(response_data['hits']) == 10
+    assert all('project' in elem for elem in response_data['hits'])
+    assert all(slide in pd.DataFrame(response_data['hits'])['slide'].unique().tolist()
+               for slide in list(response_data['url'].keys()) )
 
     response_no_url = client.post("/search",
             files={"patch": ("patch.npy",
@@ -59,8 +62,16 @@ def test_tcga_uni_search_post(client):
             data={"k": "50", "url": False})
 
     response_data = response_no_url.json()
-    assert len(response_data) == 50
-    assert all(elem['url'] == "NA" for elem in response_data)
+    assert len(response_data['hits']) == 50
+    assert response_data['url'] is None
+
+    response_no_params = client.post("/search",
+        files={"patch": ("patch.npy", payload, "application/octet-stream")},
+        data=None)
+
+    response_data = response_no_params.json()
+    assert len(response_data['hits']) == 100
+    assert 'url' in response_data
 
 @patch("hist2query.cli.serve.uvicorn.run")
 @patch("hist2query.cli.serve.create_app")

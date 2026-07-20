@@ -65,7 +65,7 @@ def process_tcga_slide(dl_path: Union[str, None]=None,
         except (OSError, TypeError):
             return None
     finally:
-        if os.path.isfile(path_download) and remove_after_processing:
+        if path_download is not None and os.path.isfile(path_download) and remove_after_processing:
             os.remove(path_download)
 
 
