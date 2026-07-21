@@ -1,5 +1,8 @@
 import os
 from unittest.mock import patch
+
+import numpy as np
+
 from hist2query.process.download import (
     get_hf_projects,
     process_tcga_slide,
@@ -40,9 +43,21 @@ def test_processing_tcga_slide(mock_tcga_slide, get_current_dir):
 
     slide_info = process_tcga_slide("TCGA_BRCA/features/TCGA-VD-A8KA-01Z-00-DX1.h5", "fake/repo",
                                     "fake_outdir", 200, False, False)
+    assert isinstance(slide_info, dict)
     assert slide_info['project'] == "TCGA_BRCA"
     assert slide_info['embeddings'].shape == (200, 1536)
     assert slide_info['coords'].shape == (200, 2)
+
+@patch("hist2query.process.download.download_hf_file")
+def test_processing_tcga_slide_training(mock_tcga_slide, get_current_dir):
+
+    mock_tcga_slide.return_value = ('TCGA-VD-A8KA-01Z-00-DX1.h5', os.path.join(get_current_dir, 'fixtures',
+                                                'TCGA-VD-A8KA-01Z-00-DX1.h5'))
+
+    slide_info = process_tcga_slide("TCGA_BRCA/features/TCGA-VD-A8KA-01Z-00-DX1.h5", "fake/repo",
+                                    "fake_outdir", 200, True, False)
+    assert isinstance(slide_info, np.ndarray)
+    assert slide_info.shape == (200, 1536)
 
 @patch("hist2query.process.download.download_hf_file")
 def test_processing_tcga_slide_malformed(mock_tcga_slide, get_current_dir):

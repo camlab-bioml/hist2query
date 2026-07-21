@@ -78,14 +78,14 @@ response = requests.post(f"http://localhost:7000}/search",
 
 ```
 {'hits': [
-    {'project': 'TCGA-KICH', 'slide': 'TCGA-KN-8422-01Z-00-DX1.h5', 'x': 36864, 'y': 8704, 'similarity': 0.4805717468261719}],
+    {'project': 'TCGA-KICH', 'tissue': 'Kidney Chromophobe', slide': 'TCGA-KN-8422-01Z-00-DX1.h5', 'x': 36864, 'y': 8704, 'similarity': 0.4805717468261719}],
  'url': 
     {'TCGA-KN-8422-01Z-00-DX1.h5': 'https://portal.gdc.cancer.gov/files/92518281-c255-4353-b349-715d9e0a936f'}}
 ```
 
 The response will contain two fields, `hits` and `url`. 
 `hits` will provide a list of query results per H&E patch containing 
-project, slide, spatial (coordinate), and query similarity information. 
+project, [tissue](https://gdc.cancer.gov/resources-tcga-users/tcga-code-tables/tcga-study-abbreviations), slide, spatial (coordinate), and query similarity information. 
 `url` will either be `None` if the user doesn't request URLs, or a
 set of key value pairs matching every `slide` identifier in the query
 list to a URL in GDC portal where the SVS slide can be viewed 

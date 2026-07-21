@@ -18,7 +18,7 @@ import torch.nn.functional as tf
 import torchvision
 from hist2query.app.utils import preprocess_tiles, make_tiles
 
-TCGA_RESPONSE_COL_HEADERS = ['project', 'slide', 'x', 'y', 'similarity']
+TCGA_RESPONSE_COL_HEADERS = ['project', 'tissue', 'slide', 'x', 'y', 'similarity']
 
 class SearchRequest(BaseModel):
     # set the default query parameters

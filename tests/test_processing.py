@@ -22,7 +22,7 @@ def test_train_processing(mock_slides_project, mock_slide_process,
         mock_slide_process.return_value = embeddings
 
     mock_slides_project.return_value = ["slide_brca"] * 10 + ['slide_uvm'] * 20
-
+    
     with tempfile.TemporaryDirectory() as tmp_test:
         train_index(output_index = os.path.join(tmp_test, 'test_build_train.index'),
                     nlist = 10, nbits = 4, patches_per_slide=500, min_slides_project=4, max_slides_project=20,
@@ -43,11 +43,12 @@ def test_add_processing(mock_slides_project, mock_slide_process,
         indices = np.random.choice(len(embeddings),
                                    min(500, len(embeddings)), replace=False)
         embeddings = embeddings[indices]
-        mock_slide_process.return_value = {"project": "TCGA_BRCA",
+        mock_slide_process.return_value = {"project": "TCGA-BRCA_OTHERS",
                                            "slide": 'TCGA-VD-A8KA-01Z-00-DX1.h5',
+                                           "tissue": "Breast invasive carcinoma",
                     "embeddings": embeddings, "coords": coords[indices]}
 
-    mock_slides_project.return_value = ["slide_brca"]
+    mock_slides_project.return_value = ["TCGA-BRCA_OTHERS"]
 
     index_in = os.path.join(get_current_dir, 'fixtures', 'test_index_added.index')
     with tempfile.TemporaryDirectory() as tmp_test:
@@ -62,5 +63,6 @@ def test_add_processing(mock_slides_project, mock_slide_process,
         assert index.d > 0
         metadata_in = pd.read_parquet(os.path.join(tmp_test, 'test_more_added.parquet'))
         assert len(metadata_in) == 500
-        assert metadata_in['project'].unique().tolist() == ['TCGA_BRCA']
+        assert metadata_in['project'].unique().tolist() == ['TCGA-BRCA_OTHERS']
         assert metadata_in['slide'].unique().tolist() == ['TCGA-VD-A8KA-01Z-00-DX1.h5']
+        assert metadata_in['tissue'].unique().tolist() == ['Breast invasive carcinoma']
