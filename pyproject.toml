@@ -55,7 +55,7 @@ where = ["."]
 include = ["hist2query*"]
 
 [tool.setuptools.package-data]
-hist2query = ["*.json", "*.pkl"]
+hist2query = ["*.json", "app/*.pkl"]
 
 [tool.setuptools.dynamic]
 version = {attr = "hist2query._version.__version__"}
