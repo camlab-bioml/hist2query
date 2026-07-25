@@ -56,6 +56,8 @@ options:
 
 ### Querying a patch using the `/search` endpoint
 
+#### Python
+
 ```commandline
 def serialize_crop(crop: Union[np.array, np.ndarray, None]=None):
     """
@@ -70,7 +72,7 @@ def serialize_crop(crop: Union[np.array, np.ndarray, None]=None):
 crop = np.ones((224, 224, 3))
     
 response = requests.post(f"http://localhost:7000}/search",
-                                 files={"patch": ("patch.npy", serialize_crop(crop.astype(np.uint8)))},
+                                 files={"patch": ("patch.npz", serialize_crop(crop.astype(np.uint8)))},
                                  data={"k": 1, "url": True}, timeout=300)
         response.raise_for_status()
         print(response.json())
@@ -82,6 +84,37 @@ response = requests.post(f"http://localhost:7000}/search",
  'url': 
     {'TCGA-KN-8422-01Z-00-DX1.h5': 'https://portal.gdc.cancer.gov/files/92518281-c255-4353-b349-715d9e0a936f'}}
 ```
+
+#### NodeJS or browser
+
+PNG encoding is the recommended method for encoding patches from any JS-derived framework:
+
+```commandline
+const pngBuffer = img.png().toBuffer();
+const form = new FormData();
+
+    form.append(
+        "patch",
+        pngBuffer,
+        {
+            filename: "patch.png",
+            contentType: "image/png"
+        }
+    );
+    
+const response = await axios.post(
+        "http://localhost:7000/search",
+        form,
+        {
+            headers: form.getHeaders(),
+            timeout: 300000
+        }
+    );
+```
+
+A full example of a request made through Node can be found in the [examples directory](./examples/queryPNG.js)
+
+
 
 The response will contain two fields, `hits` and `url`. 
 `hits` will provide a list of query results per H&E patch containing 

@@ -5,6 +5,7 @@ import io
 import os
 from collections.abc import Callable
 from contextlib import asynccontextmanager
+from PIL import Image
 from fastapi import FastAPI, UploadFile, File, Form, Depends
 import torch
 import timm
@@ -98,11 +99,12 @@ def create_app(model_loader: Callable[[], Tuple[timm.models.vision_transformer.V
             # search parameters are optional
             params: SearchRequest = Depends(SearchRequest.as_form)):
 
-        patch_bytes = await patch.read()
-
-        arr = np.load(io.BytesIO(patch_bytes))
-
-        tile_rgb = np.array(arr["data"])
+        if str(patch.filename).endswith("png"):
+            tile_rgb = np.asarray(Image.open(patch.file).convert("RGB"))
+        else:
+            patch_bytes = await patch.read()
+            arr = np.load(io.BytesIO(patch_bytes))
+            tile_rgb = np.array(arr["data"])
 
         tile_rgb = make_tiles(tile_rgb) if (tile_rgb.shape[0] > 224 or
                     tile_rgb.shape[1] > 224) else [tile_rgb]

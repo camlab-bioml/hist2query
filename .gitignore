@@ -220,3 +220,5 @@ __marimo__/
 sandbox/
 .idea/
 
+node_modules/
+
