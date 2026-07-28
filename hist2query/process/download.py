@@ -32,7 +32,7 @@ def download_hf_file(dl_path: Union[str, None]=None,
 def process_tcga_slide(dl_path: Union[str, None]=None,
                      repo_hf: Union[str, None]=None,
                      outdir: Union[str, None]=None,
-                     patches_per_slide: int=100,
+                     patches_per_slide: Union[int, None]=100,
                      training: bool=True,
                      remove_after_processing: bool=True,
                      hf_token: Union[str, None]=None):
@@ -46,6 +46,7 @@ def process_tcga_slide(dl_path: Union[str, None]=None,
                 if not training:
                     coords = np.squeeze(f["coords"][:])
 
+            patches_per_slide = patches_per_slide if patches_per_slide is not None else len(embeddings)
             indices = np.random.choice(len(embeddings),
                                        min(patches_per_slide, len(embeddings)), replace=False)
 
@@ -71,17 +72,19 @@ def process_tcga_slide(dl_path: Union[str, None]=None,
 
 def subsample_slides_by_project(projects: dict,
                                 slide_prop: Union[int, float, None]=0.25,
-                                min_slides_project: int=25,
-                                max_slides_project: int=75):
+                                min_slides_project: Union[int, None]=25,
+                                max_slides_project: Union[int, None]=75):
     sampled = []
     for project, slides in projects.items():
         # by default, use everything
         slide_count = len(slides)
-        # if slide prop is between 0 and 1, sub-sample
+        # if slide prop is between 0 and 1, subsample, and check the min and max slides per project
         if slide_prop is not None and 0 < slide_prop <= 1:
+            min_slides_project = min_slides_project if min_slides_project is not None else len(slides)
+            max_slides_project = max_slides_project if max_slides_project is not None else len(slides)
             slide_count = max(int(slide_prop * len(slides)), min_slides_project)
             slide_count = min(slide_count, max_slides_project)
-
+        
         sampled.extend(random.sample(slides, min(slide_count, len(slides))))
 
     return sampled

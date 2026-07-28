@@ -49,9 +49,9 @@ def add_to_index(repo_hf: str="W8Yi/tcga-wsi-uni2h-features",
     output_index: Union[str, Path, None] = "tcga_uni_added.index",
     output_metadata: Union[str, Path, None] = "tcga_uni_metadata.parquet",
     slide_prop: Union[int, float]=0.25,
-    patches_per_slide: int=100,
-    min_slides_project: int=25,
-    max_slides_project: int=75,
+    patches_per_slide: Union[int, None]=100,
+    min_slides_project: Union[int, None]=25,
+    max_slides_project: Union[int, None]=75,
     workers: int=16,
     hf_token: Union[str, None]=None):
 

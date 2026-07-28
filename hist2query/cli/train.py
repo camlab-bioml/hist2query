@@ -1,5 +1,6 @@
+from functools import partial
 from hist2query.process.train import train_index
-
+from hist2query.utils import numerical_or_none
 
 def configure_parser(parser):
     parser.add_argument('-r', "--repo", dest="repo", default="W8Yi/tcga-wsi-uni2h-features",
@@ -17,17 +18,17 @@ def configure_parser(parser):
     parser.add_argument('-nb', "--nbits", default=8, type=int, dest="nbits",
         help="Number of bytes to encode each embedding.")
 
-    parser.add_argument('-sp', "--slide-prop", default=0.25, type=float, dest="slide_prop",
-        help="Set a proportion of each project to train on. If None, train on everything (NOT recommended).")
+    parser.add_argument('-sp', "--slide-prop", default=0.25, type=partial(numerical_or_none, numerical_type=float), dest="slide_prop",
+                        help="Set a proportion of each project to train on. If None, train on everything (NOT recommended).")
 
-    parser.add_argument('-p', "--patches-per-slide", default=100, type=int, dest="patches_per_slide",
-        help="Number of patches per slide to sub-sample and train on. If None, train on all patches (NOT recommended).")
+    parser.add_argument('-p', "--patches-per-slide", default=100, type=partial(numerical_or_none, numerical_type=int), dest="patches_per_slide",
+                        help="Number of patches per slide to sub-sample and train on. If None, train on all patches (NOT recommended).")
 
-    parser.add_argument('-minsp', "--min-slides-project", default=25, type=int, dest="min_slides_project",
-        help="Minimum number of slides to include in training per project.")
+    parser.add_argument('-minsp', "--min-slides-project", default=25, type=partial(numerical_or_none, numerical_type=int), dest="min_slides_project",
+                        help="Minimum number of slides to include in training per project. If None, all slides per project are used (NOT recommended).")
 
-    parser.add_argument('-maxsp', "--max-slides-project", default=75, type=int, dest="max_slides_project",
-        help="Maximum number of slides to include in training per project.")
+    parser.add_argument('-maxsp', "--max-slides-project", default=75, type=partial(numerical_or_none, numerical_type=int), dest="max_slides_project",
+                        help="Maximum number of slides to include in training per project. If None, all slides per project are used (NOT recommended).")
 
     parser.add_argument('-w', "--workers", default=16, type=int, dest="workers",
         help="Number of pool workers to use for multi-threaded hf downloads.")

@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-07-15
+## [0.2.0] - 2026-07-28
 
 ### Added
 
 - Support PNG encoding for patch in POST search
+- slide and patch parameters for `train` and `add` can accept `None` to use the entire dataset
+- LICENSE (MIT)
 
 ## [0.1.0] - 2026-07-17
 
