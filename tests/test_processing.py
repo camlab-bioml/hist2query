@@ -45,7 +45,7 @@ def test_add_processing(mock_slides_project, mock_slide_process,
         embeddings = embeddings[indices]
         mock_slide_process.return_value = {"project": "TCGA-BRCA_OTHERS",
                                            "slide": 'TCGA-VD-A8KA-01Z-00-DX1.h5',
-                                           "tissue": "Breast invasive carcinoma",
+                                           "tissue": "Breast invasive carcinoma (Other)",
                     "embeddings": embeddings, "coords": coords[indices]}
 
     mock_slides_project.return_value = ["TCGA-BRCA_OTHERS"]
@@ -65,4 +65,4 @@ def test_add_processing(mock_slides_project, mock_slide_process,
         assert len(metadata_in) == 500
         assert metadata_in['project'].unique().tolist() == ['TCGA-BRCA_OTHERS']
         assert metadata_in['slide'].unique().tolist() == ['TCGA-VD-A8KA-01Z-00-DX1.h5']
-        assert metadata_in['tissue'].unique().tolist() == ['Breast invasive carcinoma']
+        assert metadata_in['tissue'].unique().tolist() == ['Breast invasive carcinoma (Other)']

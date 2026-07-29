@@ -11,8 +11,8 @@ from hist2query.process.download import (
 TCGA_STUDY_CODES = {
     "TCGA-ACC": "Adrenocortical carcinoma",
     "TCGA-BLCA": "Bladder Urothelial Carcinoma",
-    "TCGA-BRCA_IDC": "Bladder Urothelial Carcinoma",
-    "TCGA-BRCA_OTHERS": "Breast invasive carcinoma",
+    "TCGA-BRCA_IDC": "Breast invasive carcinoma (IDC)",
+    "TCGA-BRCA_OTHERS": "Breast invasive carcinoma (Other)",
     "TCGA-CESC": "Cervical squamous cell carcinoma and endocervical adenocarcinoma",
     "TCGA-CHOL": "Cholangiocarcinoma",
     "TCGA-COAD": "Colon adenocarcinoma",
