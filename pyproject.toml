@@ -26,6 +26,7 @@ dependencies = [
     "networkx",
     "numpy",
     "pandas",
+    "pyarrow",
     "python-multipart",
     "requests",
     "torch",
