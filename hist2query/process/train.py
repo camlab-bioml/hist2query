@@ -1,10 +1,16 @@
 from typing import Union
+import gc
+import os
 from pathlib import Path
 import numpy as np
 import faiss
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from hist2query.process.download import process_tcga_slide, get_hf_projects, subsample_slides_by_project
+from hist2query.process.download import (
+    process_tcga_slide,
+    get_hf_projects,
+    subsample_slides_by_project,
+    download_hf_file)
 
 def train_index(
     repo_hf: str="W8Yi/tcga-wsi-uni2h-features",
@@ -17,18 +23,33 @@ def train_index(
     min_slides_project: Union[int, None]=25,
     max_slides_project: Union[int, None]=75,
     workers: int=16,
-    hf_token: Union[str, None]=None):
+    hf_token: Union[str, None]=None,
+    remove_after_processing: bool=True):
 
     sampled = subsample_slides_by_project(get_hf_projects(repo_hf), slide_prop,
                                           min_slides_project, max_slides_project)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [pool.submit(process_tcga_slide, path, repo_hf, tmpdir,
-                        patches_per_slide, True, True, hf_token) for path in sampled]
-            train_embeddings = [future.result() for future in as_completed(futures) if
-                                (future is not None and future.result() is not None)]
-
+            futures = [pool.submit(download_hf_file, path, repo_hf, tmpdir,
+                                   hf_token) for path in sampled]
+            train_embeddings = []
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                    dl_path, local_path = None, None
+                    if result is not None:
+                        dl_path, local_path = result
+                        sam_name, project_name = str(dl_path).split("/features/")[1], str(dl_path).split("/features/")[0]
+                        result = process_tcga_slide(local_path, sam_name, project_name, patches_per_slide, True)
+                        train_embeddings.append(result)
+                        del result
+                        gc.collect()
+                except (OSError, KeyError, TypeError): pass
+                finally:
+                    if local_path is not None and os.path.exists(local_path) and remove_after_processing:
+                        os.remove(local_path)
+    
     train_embeddings = np.concatenate(train_embeddings)
     faiss.normalize_L2(train_embeddings)
     quantizer = faiss.IndexFlatIP(train_embeddings.shape[1])

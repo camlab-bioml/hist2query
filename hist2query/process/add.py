@@ -1,12 +1,19 @@
 from typing import Union
 import tempfile
+import gc
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 import faiss
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from hist2query.process.download import (
-    get_hf_projects, subsample_slides_by_project, process_tcga_slide)
+    get_hf_projects,
+    subsample_slides_by_project,
+    process_tcga_slide,
+    download_hf_file)
 
 TCGA_STUDY_CODES = {
     "TCGA-ACC": "Adrenocortical carcinoma",
@@ -41,8 +48,7 @@ TCGA_STUDY_CODES = {
     "TCGA-THYM": "Thymoma",
     "TCGA-UCEC": "Uterine Corpus Endometrial Carcinoma",
     "TCGA-UCS": "Uterine Carcinosarcoma",
-    "TCGA-UVM": "Uveal Melanoma",
-}
+    "TCGA-UVM": "Uveal Melanoma"}
 
 def add_to_index(repo_hf: str="W8Yi/tcga-wsi-uni2h-features",
     input_index: Union[str, Path, None]="tcga_uni_trained.index",
@@ -53,22 +59,28 @@ def add_to_index(repo_hf: str="W8Yi/tcga-wsi-uni2h-features",
     min_slides_project: Union[int, None]=25,
     max_slides_project: Union[int, None]=75,
     workers: int=16,
-    hf_token: Union[str, None]=None):
+    hf_token: Union[str, None]=None,
+    remove_after_processing: bool=True):
 
     index = faiss.read_index(input_index)
     sampled = subsample_slides_by_project(get_hf_projects(repo_hf), slide_prop,
                                           min_slides_project, max_slides_project)
 
-    metadata_chunks = []
     embedding_index = 0
+    writer = None
     with tempfile.TemporaryDirectory() as tmpdir:
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [pool.submit(process_tcga_slide, path, repo_hf, tmpdir,
-                                   patches_per_slide, False, True, hf_token) for path in sampled]
+            futures = [pool.submit(download_hf_file, path, repo_hf, tmpdir,
+                                   hf_token) for path in sampled]
             for future in as_completed(futures):
-                if future is not None:
+                try:
                     result = future.result()
+                    dl_path, local_path = None, None
                     if result is not None:
+                        dl_path, local_path = result
+                        sam_name, project_name = str(dl_path).split("/features/")[1], str(dl_path).split("/features/")[
+                            0]
+                        result = process_tcga_slide(local_path, sam_name, project_name, patches_per_slide, False)
                         embeddings = result["embeddings"]
 
                         ids = np.arange(embedding_index,
@@ -77,18 +89,31 @@ def add_to_index(repo_hf: str="W8Yi/tcga-wsi-uni2h-features",
 
                         index.add_with_ids(embeddings, ids)
 
-                        metadata_chunks.append(
-                            pd.DataFrame({
-                                "index": ids,
-                                "project": result["project"],
-                                "tissue": TCGA_STUDY_CODES[result["project"]],
-                                "slide": result["slide"],
-                                "x": result["coords"][:, 0],
-                                "y": result["coords"][:, 1],
-                            }))
+                        df = pd.DataFrame({
+                            "index": ids,
+                            "project": result["project"],
+                            "tissue": TCGA_STUDY_CODES[result["project"]],
+                            "slide": result["slide"],
+                            "x": result["coords"][:, 0],
+                            "y": result["coords"][:, 1],
+                        })
+
+                        metadata_out = pa.Table.from_pandas(df, preserve_index=False)
+
+                        if writer is None:
+                            writer = pq.ParquetWriter(output_metadata, metadata_out.schema,
+                                                      compression="snappy")
+
+                        writer.write_table(metadata_out)
 
                         embedding_index += len(ids)
+                        del result, embeddings, ids, df, metadata_out
+                        gc.collect()
+                except (OSError, KeyError, TypeError): pass
+                finally:
+                    if local_path is not None and os.path.exists(local_path) and remove_after_processing:
+                        os.remove(local_path)
 
-    pd.concat(metadata_chunks).to_parquet(output_metadata, index=False)
+    if writer is not None: writer.close()
 
     faiss.write_index(index, output_index)

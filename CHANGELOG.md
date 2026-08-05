@@ -7,13 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-07-29
+## [0.2.0] - 2026-08-05
 
 ### Added
 
 - Support PNG encoding for patch in POST search
 - slide and patch parameters for `train` and `add` can accept `None` to use the entire dataset
 - LICENSE (MIT)
+
+### Changed
+
+- thread pooling now returns file paths instead of arrays, slide processing handled after result
+- Adding writes parquet metadata in per-slide chunks
 
 ### Fixed
 

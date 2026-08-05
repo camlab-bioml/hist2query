@@ -34,38 +34,35 @@ def test_basic_download(mock_hf_download, get_current_dir):
     assert local_path == os.path.join(get_current_dir, 'fixtures',
                                                 'TCGA-VD-A8KA-01Z-00-DX1.h5')
 
+@patch("hist2query.process.download.hf_hub_download")
+def test_basic_download_empty(mock_hf_download, get_current_dir):
+    mock_hf_download.return_value = None
+    mock_hf_download.side_effect = OSError("Invalid data")
+    assert download_hf_file('TCGA-VD-A8KA-01Z-00-DX1.h5') is None
 
-@patch("hist2query.process.download.download_hf_file")
-def test_processing_tcga_slide(mock_tcga_slide, get_current_dir):
+def test_processing_tcga_slide(get_current_dir):
 
-    mock_tcga_slide.return_value = ('TCGA-VD-A8KA-01Z-00-DX1.h5', os.path.join(get_current_dir, 'fixtures',
-                                                'TCGA-VD-A8KA-01Z-00-DX1.h5'))
-
-    slide_info = process_tcga_slide("TCGA_BRCA/features/TCGA-VD-A8KA-01Z-00-DX1.h5", "fake/repo",
-                                    "fake_outdir", 200, False, False)
+    slide_info = process_tcga_slide(os.path.join(get_current_dir, 'fixtures',
+                                                'TCGA-VD-A8KA-01Z-00-DX1.h5'), 'TCGA-VD-A8KA-01Z-00-DX1',
+                                    'TCGA_BRCA', 200, False)
     assert isinstance(slide_info, dict)
     assert slide_info['project'] == "TCGA_BRCA"
     assert slide_info['embeddings'].shape == (200, 1536)
     assert slide_info['coords'].shape == (200, 2)
 
-@patch("hist2query.process.download.download_hf_file")
-def test_processing_tcga_slide_training(mock_tcga_slide, get_current_dir):
+def test_processing_tcga_slide_training(get_current_dir):
 
-    mock_tcga_slide.return_value = ('TCGA-VD-A8KA-01Z-00-DX1.h5', os.path.join(get_current_dir, 'fixtures',
-                                                'TCGA-VD-A8KA-01Z-00-DX1.h5'))
-
-    slide_info = process_tcga_slide("TCGA_BRCA/features/TCGA-VD-A8KA-01Z-00-DX1.h5", "fake/repo",
-                                    "fake_outdir", 200, True, False)
+    slide_info = process_tcga_slide(os.path.join(get_current_dir, 'fixtures',
+                                                 'TCGA-VD-A8KA-01Z-00-DX1.h5'), 'TCGA-VD-A8KA-01Z-00-DX1',
+                                    'TCGA_BRCA', 200, True)
     assert isinstance(slide_info, np.ndarray)
     assert slide_info.shape == (200, 1536)
 
-@patch("hist2query.process.download.download_hf_file")
-def test_processing_tcga_slide_malformed(mock_tcga_slide, get_current_dir):
+def test_processing_tcga_slide_malformed(get_current_dir):
 
     # mock: if the download doesn't return a valid download, then no processing happens
-    mock_tcga_slide.return_value = (None, None)
-    assert process_tcga_slide("TCGA_BRCA/features/TCGA-VD-A8KA-01Z-00-DX1.h5", "fake/repo",
-                                    "fake_outdir", 200, False, False) is None
+    assert process_tcga_slide(None, "fake/repo",
+                                    "fake_outdir", 200, False) is None
 
 def test_downsample_project_slide_lists():
     slide_lists = {"TCGA_BRCA": ["slide_brca"] * 400,
