@@ -3,6 +3,7 @@ from unittest.mock import patch, Mock
 from typing import Union
 import numpy as np
 import pandas as pd
+from PIL import Image
 from hist2query.app.app import load_uni_model
 from hist2query.cli.serve import run
 
@@ -12,6 +13,16 @@ def serialize_crop(crop: Union[np.array, np.ndarray, None]=None):
         np.savez_compressed(buffer, data=np.stack(crop))
         return buffer.getvalue()
     return None
+
+def serialize_png(crop: np.ndarray) -> bytes:
+    """
+    Serialize an RGB numpy array into PNG bytes.
+    """
+    buffer = io.BytesIO()
+    image = Image.fromarray(crop.astype(np.uint8), mode="RGB")
+    image.save(buffer, format="PNG")
+
+    return buffer.getvalue()
 
 @patch("hist2query.app.app.create_transform")
 @patch("hist2query.app.app.timm.create_model")
@@ -43,7 +54,7 @@ def test_tcga_uni_search_post(client):
         size=(224, 224, 3), dtype=np.uint8))
 
     response = client.post("/search",
-        files={"patch": ("patch.npy",
+        files={"patch": ("patch.npz",
             payload, "application/octet-stream")},
         data={"k": "10", "url": True})
 
@@ -57,7 +68,7 @@ def test_tcga_uni_search_post(client):
                for slide in list(response_data['url'].keys()) )
 
     response_no_url = client.post("/search",
-            files={"patch": ("patch.npy",
+            files={"patch": ("patch.npz",
             payload, "application/octet-stream")},
             data={"k": "50", "url": False})
 
@@ -66,11 +77,23 @@ def test_tcga_uni_search_post(client):
     assert response_data['url'] is None
 
     response_no_params = client.post("/search",
-        files={"patch": ("patch.npy", payload, "application/octet-stream")},
+        files={"patch": ("patch.npz", payload, "application/octet-stream")},
         data=None)
 
     response_data = response_no_params.json()
     assert len(response_data['hits']) == 100
+    assert 'url' in response_data
+
+    payload_png = serialize_png(np.random.randint(0, 255,
+                                               size=(224, 224, 3), dtype=np.uint8))
+
+    response_png = client.post("/search",
+                        files={"patch": ("patch.png",
+                        payload_png, "application/octet-stream")},
+                        data={"k": "10", "url": True})
+
+    response_data = response_png.json()
+    assert len(response_data['hits']) == 10
     assert 'url' in response_data
 
 @patch("hist2query.cli.serve.uvicorn.run")
