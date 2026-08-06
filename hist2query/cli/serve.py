@@ -1,9 +1,9 @@
 import uvicorn
-from hist2query.app.app import (
-    create_app,
-    load_uni_model,
+from hist2query.app.utils import (
+    load_hf_model,
     load_index,
     load_metadata)
+from hist2query.app.app import create_app
 
 def configure_parser(parser):
 
@@ -22,13 +22,17 @@ def configure_parser(parser):
     parser.add_argument('-w', "--workers", default=1, type=int,
         help="Number of workers to use for fastAPI.")
 
+    parser.add_argument('-pr', "--use-prism2", action="store_true",
+        help="Enable prism2 for the chat endpoint. Requires GPU deployment.", dest="prism2")
+
     parser.set_defaults(func=run)
 
 def run(args):
 
     app = create_app(
-        model_loader=lambda: load_uni_model(args.model),
+        model_loader=lambda: load_hf_model(args.model),
         index_loader=lambda: load_index(args.index),
-        metadata_loader=lambda: load_metadata(args.metadata))
+        metadata_loader=lambda: load_metadata(args.metadata),
+        enable_prism2=args.prism2)
 
     uvicorn.run(app, host=args.host, port=args.port, workers=args.workers)

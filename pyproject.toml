@@ -29,8 +29,8 @@ dependencies = [
     "pyarrow",
     "python-multipart",
     "requests",
-    "torch",
     "timm",
+    "torch",
     "uni @ git+https://github.com/mahmoodlab/UNI.git",
     "uvicorn"]
 
@@ -39,6 +39,14 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov"]
+prism2 = [
+    "accelerate==1.2.1",
+    "einops",
+    "flash-attn==2.7.4.post1",
+    "psutil",
+    "safetensors",
+    "torch==2.6.0",
+    "transformers==4.51.0"]
 
 [project.urls]
 Homepage = "https://github.com/camlab-bioml/hist2query"

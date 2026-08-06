@@ -4,7 +4,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 from PIL import Image
-from hist2query.app.app import load_uni_model
+from hist2query.app.utils import load_hf_model
 from hist2query.cli.serve import run
 
 def serialize_crop(crop: Union[np.array, np.ndarray, None]=None):
@@ -24,8 +24,8 @@ def serialize_png(crop: np.ndarray) -> bytes:
 
     return buffer.getvalue()
 
-@patch("hist2query.app.app.create_transform")
-@patch("hist2query.app.app.timm.create_model")
+@patch("hist2query.app.utils.create_transform")
+@patch("hist2query.app.utils.timm.create_model")
 def test_load_uni_model(mock_create_model, mock_create_transform):
 
     class MockModel:
@@ -40,7 +40,7 @@ def test_load_uni_model(mock_create_model, mock_create_transform):
     mock_create_model.return_value = MockModel()
     mock_create_transform.return_value = "mock_transform"
 
-    model, transform, device = load_uni_model()
+    model, transform, device = load_hf_model()
 
     assert device in ["cpu", "cuda"]
     assert transform == "mock_transform"
@@ -48,15 +48,15 @@ def test_load_uni_model(mock_create_model, mock_create_transform):
     mock_create_model.assert_called_once()
     mock_create_transform.assert_called_once()
 
-def test_tcga_uni_search_post(client):
+def test_tcga_uni_search_post(client_no_prism2):
 
     payload = serialize_crop(np.random.randint(0, 255,
         size=(224, 224, 3), dtype=np.uint8))
 
-    response = client.post("/search",
-        files={"patch": ("patch.npz",
+    response = client_no_prism2.post("/search",
+                                     files={"patch": ("patch.npz",
             payload, "application/octet-stream")},
-        data={"k": "10", "url": True})
+                                     data={"k": "10", "url": True})
 
     assert response.status_code == 200
     response_data = response.json()
@@ -67,18 +67,18 @@ def test_tcga_uni_search_post(client):
     assert all(slide in pd.DataFrame(response_data['hits'])['slide'].unique().tolist()
                for slide in list(response_data['url'].keys()) )
 
-    response_no_url = client.post("/search",
-            files={"patch": ("patch.npz",
+    response_no_url = client_no_prism2.post("/search",
+                                            files={"patch": ("patch.npz",
             payload, "application/octet-stream")},
-            data={"k": "50", "url": False})
+                                            data={"k": "50", "url": False})
 
     response_data = response_no_url.json()
     assert len(response_data['hits']) == 50
     assert response_data['url'] is None
 
-    response_no_params = client.post("/search",
-        files={"patch": ("patch.npz", payload, "application/octet-stream")},
-        data=None)
+    response_no_params = client_no_prism2.post("/search",
+                                               files={"patch": ("patch.npz", payload, "application/octet-stream")},
+                                               data=None)
 
     response_data = response_no_params.json()
     assert len(response_data['hits']) == 100
@@ -87,14 +87,41 @@ def test_tcga_uni_search_post(client):
     payload_png = serialize_png(np.random.randint(0, 255,
                                                size=(224, 224, 3), dtype=np.uint8))
 
-    response_png = client.post("/search",
-                        files={"patch": ("patch.png",
+    response_png = client_no_prism2.post("/search",
+                                         files={"patch": ("patch.png",
                         payload_png, "application/octet-stream")},
-                        data={"k": "10", "url": True})
+                                         data={"k": "10", "url": True})
 
     response_data = response_png.json()
     assert len(response_data['hits']) == 10
     assert 'url' in response_data
+
+def test_prism2_chat(client_prism2):
+
+    payload = serialize_crop(np.random.randint(0, 255,
+        size=(224, 224, 3), dtype=np.uint8))
+
+    response = client_prism2.post("/chat",
+                                     files={"patch": ("patch.npz",
+            payload, "application/octet-stream")},
+            data={'question': "What type of tissue is this?"})
+
+    assert response.status_code == 200
+    assert 'response' in response.json()
+    assert response.json()['response'] == 'This is cancerous breast tissue'
+
+def test_prism2_chat_no_cuda(client_no_prism2):
+
+    payload = serialize_crop(np.random.randint(0, 255,
+        size=(224, 224, 3), dtype=np.uint8))
+
+    response = client_no_prism2.post("/chat",
+            files={"patch": ("patch.npz",
+            payload, "application/octet-stream")},
+            data={'question': "What type of tissue is this?"})
+
+    assert response.status_code == 503
+
 
 @patch("hist2query.cli.serve.uvicorn.run")
 @patch("hist2query.cli.serve.create_app")

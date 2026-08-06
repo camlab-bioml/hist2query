@@ -1,12 +1,14 @@
 import os
+from unittest.mock import patch
+
 import pytest
 import torch
 import numpy as np
 from fastapi.testclient import TestClient
-from hist2query.app.app import (
-    create_app,
+from hist2query.app.utils import (
     load_index,
     load_metadata)
+from hist2query.app.app import create_app
 
 @pytest.fixture(scope="session")
 def get_current_dir():
@@ -15,7 +17,31 @@ def get_current_dir():
 class MockUniModel:
 
     def __call__(self, x):
-        return torch.ones((len(x),1536))
+        return torch.ones((len(x), 1536))
+
+class MockVirchow2Model:
+
+    def __call__(self, x):
+        return torch.ones((1, len(x), 1280))
+
+class MockPrism2Model:
+
+    def __call__(self, x):
+        return {'batch': torch.ones((len(x), 2560))}
+
+    def eval(self):
+        return self
+
+    @staticmethod
+    def get_response(*args, **kwargs):
+
+        return "This is cancerous breast tissue"
+
+class MockPrism2Transform:
+
+    def __call__(self, img):
+
+        return {'batch': np.array(img).astype(np.float32) / 255.0}
 
 class MockUNITransform:
 
@@ -35,11 +61,10 @@ class MockUNITransform:
 
         std = torch.tensor([0.229, 0.224, 0.225]).view(3,1,1)
 
-        # mock a normalization
         return (arr - mean) / std
 
 @pytest.fixture(scope="session")
-def mock_model_loader():
+def mock_uni2_loader():
     def loader():
         return MockUniModel(), MockUNITransform(), "cpu"
     return loader
@@ -57,9 +82,19 @@ def mock_metadata_loader(get_current_dir):
     return loader
 
 @pytest.fixture(scope="session")
-def client(mock_model_loader, mock_index_loader, mock_metadata_loader):
+def client_no_prism2(mock_uni2_loader, mock_index_loader, mock_metadata_loader):
 
-    app = create_app(mock_model_loader, mock_index_loader, mock_metadata_loader)
+    app = create_app(mock_uni2_loader, mock_index_loader, mock_metadata_loader)
 
     with TestClient(app) as client:
         yield client
+
+@pytest.fixture(scope="session")
+def client_prism2(mock_uni2_loader, mock_index_loader, mock_metadata_loader):
+    with patch("hist2query.app.app.torch.cuda.is_available", return_value=True):
+        with patch("hist2query.app.app.load_hf_model", return_value = (MockVirchow2Model(), MockUNITransform(), "cpu")):
+            with patch("hist2query.app.app.load_prism2_processing", return_value = (MockPrism2Model(), MockPrism2Transform())):
+                app = create_app(mock_uni2_loader, mock_index_loader, mock_metadata_loader, True)
+
+                with TestClient(app) as client:
+                    yield client

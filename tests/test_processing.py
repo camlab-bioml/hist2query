@@ -6,7 +6,6 @@ import h5py
 import numpy as np
 import pandas as pd
 import pytest
-
 from hist2query.process.train import train_index
 from hist2query.process.add import add_to_index
 

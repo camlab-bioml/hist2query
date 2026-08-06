@@ -1,7 +1,6 @@
 # hist2query
 
-Query any H&E patch against TCGA UNI2 embeddings using FAISS. 
-
+Query any H&E patch against TCGA `UNI2` embeddings using FAISS, or with dialogue using `Prism2`.
 
 `hist2query` is comprised of the following CLI functions:
 
@@ -12,9 +11,10 @@ index using subsampling of the entire dataset
 
 ## Getting started
 
-**NOTE**: The UNI2 foundation model hosted on huggingface: https://huggingface.co/MahmoodLab/UNI2-h
-is gated, so users will need to have a registered account and accept the terms of use before installation. 
-Once accepted, users should generate and set the `HF_TOKEN` env variable before
+**NOTE**: The [UNI2](https://huggingface.co/MahmoodLab/UNI2-h), [Virchow2](https://huggingface.co/paige-ai/Virchow2), 
+and [Prism2](https://huggingface.co/paige-ai/Prism2) foundation model hosted on huggingface are gated, so users will need to have a registered account and 
+accept the terms of use before installation. **By default, hist2query will install and run the UNI2 model, but not 
+the Virchow2 or Prism2 models, as they require GPU access (see below)**. Once accepted, users should generate and set the `HF_TOKEN` env variable before
 installation. 
 
 ```commandline
@@ -35,6 +35,16 @@ or for development:
 ```commandline
 pip install -e .["dev"]
 ```
+
+To use the `Virchow2` and `Prism2` models for chat dialogue with the `chat` endpoint:
+
+```commandline
+pip install -e .["prism2"]
+```
+
+**NOTE**: some of the `Prism2` dependencies such as `torch` and `flash_attn` may conflict 
+with the dependency versions for `UNI2`. It is recommended to run `hist2query
+through Docker to access `Prism2` (see [Docker](#docker)). 
 
 ## Usage
 
@@ -114,8 +124,6 @@ const response = await axios.post(
 
 A full example of a request made through Node can be found in the [examples directory](./examples/queryPNG.js)
 
-
-
 The response will contain two fields, `hits` and `url`. 
 `hits` will provide a list of query results per H&E patch containing 
 project, [tissue](https://gdc.cancer.gov/resources-tcga-users/tcga-code-tables/tcga-study-abbreviations), slide, spatial (coordinate), and query similarity information. 
@@ -132,10 +140,28 @@ if resp['url']:
     frame_results['url'] = resp['slide'].map(resp['url'])
 ```
 
+### Chat with `Prism2`: (**NOTE: Experimental endpoint**)
+
+**IMPORTANT**: Using the `Prism2` chat endpoint requires CUDA/GPU. It is recommended to run from docker, 
+and/or to install the optional dependencies. By default, `hist2query` only installs the requirements for `UNI2`. 
+
+```commandline
+pip install -e .["prism2"]
+```
+
+```commandline
+response = requests.post(f"http://localhost:7000}/chat",
+                                 files={"patch": ("patch.npz", serialize_crop(crop.astype(np.uint8)))},
+                                 data={"question": "What type of tissue is this?"}, timeout=300)
+        response.raise_for_status()
+        print(response.json())
+```
+
+
 ## Docker
 
 The `hist2query` fastAPI server can be run through Docker. To enable the container
-to access the UNI2 hf model, deployment requires either:
+to access the gated models, deployment requires either:
 
 - passing a hf token as an environment variable `HF_TOKEN` (**RECOMMENDED**):
 ```commandline
@@ -143,7 +169,7 @@ export HF_TOKEN="your_hf_token"
 docker run -p 7000:7000 -v /home/:/home/ -e HF_TOKEN=$HF_TOKEN hist2query:latest hist2query serve -hs 0.0.0.0
 ```
 
-- mounting a local hf cache that contains the model, pre-downloaded:
+- mounting a local hf cache that contains the models, pre-downloaded:
 ```commandline
 docker run -p 7000:7000 -v /home/:/home/ -v ~/.cache/huggingface:/root/.cache/huggingface hist2query:latest hist2query serve -hs 0.0.0.0
 ```
