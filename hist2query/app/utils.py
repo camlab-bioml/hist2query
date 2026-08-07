@@ -110,7 +110,7 @@ def load_hf_model(model_name: str= "hf-hub:MahmoodLab/UNI2-h") -> \
         **model_kwargs)
 
     model.eval()
-    model.to(device)
+    model.to("cpu")
 
     transform = create_transform(**resolve_data_config(
             model.pretrained_cfg, model=model))
@@ -119,8 +119,8 @@ def load_hf_model(model_name: str= "hf-hub:MahmoodLab/UNI2-h") -> \
 
 def load_prism2_processing():
 
-    return (AutoModel.from_pretrained("paige-ai/Prism2", trust_remote_code=True),
-            AutoProcessor.from_pretrained("paige-ai/Prism2", trust_remote_code=True))
+    return (AutoModel.from_pretrained("paige-ai/Prism2", trust_remote_code=True, torch_dtype=torch.bfloat16),
+            AutoProcessor.from_pretrained("paige-ai/Prism2", trust_remote_code=True, torch_dtype=torch.bfloat16))
 
 def load_index(path: Union[str, Path]) -> faiss.Index:
     return faiss.read_index(path)

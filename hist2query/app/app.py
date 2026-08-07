@@ -35,12 +35,13 @@ def create_app(model_loader: Callable[[], Tuple[
          app.state.virchow2_transform) = None, None, None, None
 
         if enable_prism2 and torch.cuda.is_available():
+            
+            app.state.uni2_model.to("cpu")
 
             app.state.virchow2_model, app.state.virchow2_transform, app.state.device = load_hf_model("hf-hub:paige-ai/Virchow2")
+            app.state.virchow2_model.to("cpu")
             app.state.prism2_model, app.state.prism2_processor = load_prism2_processing()
             app.state.prism2_model.eval()
-            app.state.virchow2_model.to(app.state.device)
-            app.state.prism2_processor.to(app.state.device)
             app.state.prism2_model.to(app.state.device)
 
         app.state.index = index_loader()
@@ -95,7 +96,7 @@ def create_app(model_loader: Callable[[], Tuple[
     async def chat(patch: UploadFile = File(...),
                    question: Union[str, None]=None):
 
-        if any(elem is None for elem in (app.state.prism2_model, app.state.virchow2_model)):
+        if not torch.cuda.is_available():
             raise HTTPException(status_code=503,
                 detail="Prism2 not available: CUDA not found in the hist2query deployment.")
 
@@ -103,9 +104,9 @@ def create_app(model_loader: Callable[[], Tuple[
 
         image = app.state.virchow2_model(app.state.virchow2_transform(
                 Image.fromarray(tile_rgb).convert('RGB')).unsqueeze(
-                0).to(app.state.device)).to(app.state.device)
+                0))
 
-        batch = app.state.prism2_processor(image[:, 0]).to(app.state.device)
+        batch = app.state.prism2_processor([image[:, 0]]).to(app.state.device)
         with torch.autocast(app.state.device, torch.bfloat16):
             answers = app.state.prism2_model.get_response(**batch,
                 prompt=str(question), max_new_tokens=100)
