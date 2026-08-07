@@ -33,13 +33,18 @@ class MockVirchow2Model:
 class MockPrism2Model:
 
     def __call__(self, x):
-        return {'batch': torch.ones((len(x), 2560))}
+        return {'tile_embeddings': torch.ones((len(x), 2560)),
+                'attention_mask': torch.ones((len(x), 2560))}
 
     def to(self, device: str):
         return self if device else self
 
     def eval(self):
         return self
+
+    @staticmethod
+    def yes_no_score(*args, **kwargs):
+        return torch.tensor([0.6])
 
     @staticmethod
     def get_response(*args, **kwargs):
@@ -51,7 +56,9 @@ class MockPrism2Transform:
     batch = None
     def __call__(self, img):
         # mock a tensor value that has a .to(device) property
-        self.batch = BatchEncoding({"pixel_values": torch.from_numpy(
+        self.batch = BatchEncoding({"tile_embeddings": torch.from_numpy(
+                np.array(img).astype(np.float32) / 255.0),
+            "attention_mask": torch.from_numpy(
                 np.array(img).astype(np.float32) / 255.0)})
         return self.batch
 

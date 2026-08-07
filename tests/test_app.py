@@ -96,7 +96,7 @@ def test_tcga_uni_search_post(client_no_prism2):
     assert len(response_data['hits']) == 10
     assert 'url' in response_data
 
-def test_prism2_chat(client_prism2):
+def test_prism2_chat_open_response(client_prism2):
 
     payload = serialize_crop(np.random.randint(0, 255,
         size=(224, 224, 3), dtype=np.uint8))
@@ -109,6 +109,20 @@ def test_prism2_chat(client_prism2):
     assert response.status_code == 200
     assert 'response' in response.json()
     assert response.json()['response'] == 'This is cancerous breast tissue'
+
+def test_prism2_chat_open_yes_no(client_prism2):
+
+    payload = serialize_crop(np.random.randint(0, 255,
+        size=(224, 224, 3), dtype=np.uint8))
+
+    response = client_prism2.post("/chat",
+                                     files={"patch": ("patch.npz",
+            payload, "application/octet-stream")},
+            data={'question': "Is cancer present?"})
+
+    assert response.status_code == 200
+    assert 'response' in response.json()
+    assert response.json()['response'] == ['Yes']
 
 def test_prism2_chat_no_cuda(client_no_prism2):
 

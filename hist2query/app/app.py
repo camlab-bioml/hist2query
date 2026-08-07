@@ -4,7 +4,7 @@ import os
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from PIL import Image
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form
 import torch
 import timm
 import faiss
@@ -17,7 +17,7 @@ from hist2query.app.utils import (
     preprocess_tiles,
     make_tiles,
     decode_patch,
-    load_hf_model, load_prism2_processing)
+    load_hf_model, load_prism2_processing, prism2_prompt_type)
 
 def create_app(model_loader: Callable[[], Tuple[
                timm.models.vision_transformer.VisionTransformer,
@@ -68,7 +68,7 @@ def create_app(model_loader: Callable[[], Tuple[
                     tile_rgb.shape[1] > 224) else [tile_rgb]
 
         batch = preprocess_tiles(tile_rgb, app.state.uni2_transform)
-        batch = batch.to(app.state.device)
+        batch = batch.to(app.state.device) if not enable_prism2 else batch.to("cpu")
 
         with torch.inference_mode():
             embedding = app.state.uni2_model(batch)
@@ -94,7 +94,7 @@ def create_app(model_loader: Callable[[], Tuple[
 
     @app.post("/chat")
     async def chat(patch: UploadFile = File(...),
-                   question: Union[str, None]=None):
+                   question: Union[str, None]=Form(None)):
 
         if not torch.cuda.is_available() or any(elem is None for elem in (app.state.virchow2_model, app.state.prism2_model)):
             raise HTTPException(status_code=503,
@@ -103,14 +103,11 @@ def create_app(model_loader: Callable[[], Tuple[
         tile_rgb = await decode_patch(patch)
 
         image = app.state.virchow2_model(app.state.virchow2_transform(
-                Image.fromarray(tile_rgb).convert('RGB')).unsqueeze(
-                0))
+                Image.fromarray(tile_rgb).convert('RGB')).unsqueeze(0))
 
         batch = app.state.prism2_processor([image[:, 0]]).to(app.state.device)
         with torch.autocast(app.state.device, torch.bfloat16):
-            answers = app.state.prism2_model.get_response(**batch,
-                prompt=str(question), max_new_tokens=250)
-
+            answers = prism2_prompt_type(app.state.prism2_model, str(question), batch)
         return {'response': answers}
 
     return app

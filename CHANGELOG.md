@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Draft/Experimental**: Add `chat` endpoint for `Prism2` dialogue (only available on GPU)
+- **Draft/Experimental**: Add `chat` endpoint for `Prism2` dialogue 
+(only available on GPU): yes/no + open response
 
 ## [0.2.0] - 2026-08-05
 

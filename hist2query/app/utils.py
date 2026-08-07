@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 from typing import Union
 from pydantic import BaseModel
 from fastapi import Form, UploadFile
@@ -136,3 +136,22 @@ async def decode_patch(patch: UploadFile):
         patch_bytes = await patch.read()
         arr = np.load(io.BytesIO(patch_bytes))
         return np.array(arr["data"])
+
+_PRISM2_YES_NO_IDENTIFIERS = ['are', 'is', 'can']
+
+def prism2_prompt_type(model: Any, question: str,
+                       batch: torch.tensor,
+                       max_tokens_response: int=250):
+    """
+    Detect the appropriate type of model to use (open-context vs. yes/no) and set the tokens accordingly
+    """
+    if any(str(question).lower().startswith(quest_starter) for quest_starter in _PRISM2_YES_NO_IDENTIFIERS):
+        binary_resp = model.yes_no_score(
+        tile_embeddings=batch["tile_embeddings"],
+        attention_mask=batch["attention_mask"],
+        question=str(question))
+
+        return ["Yes"] if (binary_resp > 0.5).item() else ["No."]
+
+    return model.get_response(**batch,
+                prompt=str(question), max_new_tokens=max_tokens_response)
