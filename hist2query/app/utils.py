@@ -36,8 +36,9 @@ class SearchRequest(BaseModel):
 def make_tiles(img_patch: Union[np.ndarray, np.array],
                tile_size: int=224, stride: int=224) -> Union[list, None]:
 
-    if len(img_patch.shape) < 3 or img_patch.shape[2] != 3:
+    if len(img_patch.shape) < 3:
         return None
+    img_patch = img_patch[:, :, :3] if img_patch.shape[2] != 3 else img_patch
     H, W, _ = img_patch.shape
     tiles = []
     for y in range(0, H - tile_size + 1, stride):

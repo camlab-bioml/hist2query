@@ -19,6 +19,9 @@ class MockUniModel:
     def __call__(self, x):
         return torch.ones((len(x), 1536))
 
+    def to(self, device: str):
+        return self if device else self
+
 class MockVirchow2Model:
 
     def __call__(self, x):

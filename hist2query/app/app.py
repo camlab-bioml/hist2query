@@ -96,7 +96,7 @@ def create_app(model_loader: Callable[[], Tuple[
     async def chat(patch: UploadFile = File(...),
                    question: Union[str, None]=None):
 
-        if not torch.cuda.is_available():
+        if not torch.cuda.is_available() or any(elem is None for elem in (app.state.virchow2_model, app.state.prism2_model)):
             raise HTTPException(status_code=503,
                 detail="Prism2 not available: CUDA not found in the hist2query deployment.")
 
@@ -109,7 +109,7 @@ def create_app(model_loader: Callable[[], Tuple[
         batch = app.state.prism2_processor([image[:, 0]]).to(app.state.device)
         with torch.autocast(app.state.device, torch.bfloat16):
             answers = app.state.prism2_model.get_response(**batch,
-                prompt=str(question), max_new_tokens=100)
+                prompt=str(question), max_new_tokens=250)
 
         return {'response': answers}
 
