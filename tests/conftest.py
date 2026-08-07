@@ -1,10 +1,10 @@
 import os
 from unittest.mock import patch
-
 import pytest
 import torch
 import numpy as np
 from fastapi.testclient import TestClient
+from transformers import BatchEncoding
 from hist2query.app.utils import (
     load_index,
     load_metadata)
@@ -24,10 +24,16 @@ class MockVirchow2Model:
     def __call__(self, x):
         return torch.ones((1, len(x), 1280))
 
+    def to(self, device: str):
+        return self if device else self
+
 class MockPrism2Model:
 
     def __call__(self, x):
         return {'batch': torch.ones((len(x), 2560))}
+
+    def to(self, device: str):
+        return self if device else self
 
     def eval(self):
         return self
@@ -39,9 +45,15 @@ class MockPrism2Model:
 
 class MockPrism2Transform:
 
+    batch = None
     def __call__(self, img):
+        # mock a tensor value that has a .to(device) property
+        self.batch = BatchEncoding({"pixel_values": torch.from_numpy(
+                np.array(img).astype(np.float32) / 255.0)})
+        return self.batch
 
-        return {'batch': np.array(img).astype(np.float32) / 255.0}
+    def to(self, device: str):
+        return self.batch if device else self.batch
 
 class MockUNITransform:
 

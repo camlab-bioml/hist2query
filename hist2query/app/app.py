@@ -11,7 +11,6 @@ import faiss
 import pandas as pd
 import torch.nn.functional as tf
 import torchvision
-from transformers import AutoModel, AutoProcessor
 from hist2query.app.utils import (
     SearchRequest,
     TCGA_RESPONSE_COL_HEADERS,
@@ -40,6 +39,9 @@ def create_app(model_loader: Callable[[], Tuple[
             app.state.virchow2_model, app.state.virchow2_transform, app.state.device = load_hf_model("hf-hub:paige-ai/Virchow2")
             app.state.prism2_model, app.state.prism2_processor = load_prism2_processing()
             app.state.prism2_model.eval()
+            app.state.virchow2_model.to(app.state.device)
+            app.state.prism2_processor.to(app.state.device)
+            app.state.prism2_model.to(app.state.device)
 
         app.state.index = index_loader()
         app.state.metadata = metadata_loader()
@@ -100,9 +102,10 @@ def create_app(model_loader: Callable[[], Tuple[
         tile_rgb = await decode_patch(patch)
 
         image = app.state.virchow2_model(app.state.virchow2_transform(
-                Image.fromarray(tile_rgb).convert('RGB')).unsqueeze(0))
+                Image.fromarray(tile_rgb).convert('RGB')).unsqueeze(
+                0).to(app.state.device)).to(app.state.device)
 
-        batch = app.state.prism2_processor(image[:, 0])
+        batch = app.state.prism2_processor(image[:, 0]).to(app.state.device)
         with torch.autocast(app.state.device, torch.bfloat16):
             answers = app.state.prism2_model.get_response(**batch,
                 prompt=str(question), max_new_tokens=100)
