@@ -37,15 +37,21 @@ class Prism2ChatRequestParams(BaseModel):
     # set the default query parameters
     question: Optional[str] = "Write a report."
     max_token_response: Optional[int] = 250
+    raw_scores_binary: Optional[bool]=False
+    binary_threshold_for_yes: Optional[float] = 0.5
 
     @classmethod
     def as_form(
         cls,
         question: Optional[str] = Form("Write a report."),
-        max_token_response: Optional[int] = Form(250)):
+        max_token_response: Optional[int] = Form(250),
+        raw_scores_binary: Optional[bool]=Form(False),
+        binary_threshold_for_yes: Optional[float] = Form(0.5),):
 
         return cls(question=question,
-                   max_token_response=max_token_response)
+                   max_token_response=max_token_response,
+                   raw_scores_binary=raw_scores_binary,
+                   binary_threshold_for_yes=binary_threshold_for_yes)
 
 def make_tiles(img_patch: Union[np.ndarray, np.array],
                tile_size: int=224, stride: int=224) -> Union[list, None]:
@@ -154,9 +160,20 @@ async def decode_patch(patch: UploadFile):
 
 _PRISM2_YES_NO_IDENTIFIERS = ['are', 'is', 'can', 'could']
 
+def binary_threshold_response(scores: torch.tensor,
+                              prob_threshold: float=0.5):
+    """
+    Define the binary threshold for the yes/no prism2 response
+    """
+    return [f"Yes (P={round(float(score), 4)})" if score >= prob_threshold else
+            f"No (P={round(float(score), 4)})" for score in scores]
+
+
 def prism2_prompt_type(model: Any, question: str,
                        batch: torch.tensor,
-                       max_tokens_response: int=250):
+                       max_tokens_response: int=250,
+                       raw_scores_binary: bool=False,
+                       binary_threshold_for_yes: Union[float, str]=0.5):
     """
     Detect the appropriate type of model to use (open-context vs. yes/no) and set the tokens accordingly
     """
@@ -166,7 +183,8 @@ def prism2_prompt_type(model: Any, question: str,
         attention_mask=batch["attention_mask"],
         question=str(question))
 
-        return ["Yes" if score >= 0.5 else "No" for score in binary_resp]
+        return binary_threshold_response(binary_resp, float(binary_threshold_for_yes)) if not raw_scores_binary else \
+            [round(float(elem), 4) for elem in binary_resp]
 
     return model.get_response(**batch,
                 prompt=str(question), max_new_tokens=max_tokens_response)

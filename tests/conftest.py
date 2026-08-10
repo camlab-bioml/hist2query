@@ -44,7 +44,7 @@ class MockPrism2Model:
 
     @staticmethod
     def yes_no_score(*args, **kwargs):
-        return torch.tensor([0.6])
+        return torch.tensor([0.6348])
 
     @staticmethod
     def get_response(*args, **kwargs):

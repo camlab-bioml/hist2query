@@ -55,7 +55,8 @@ def test_tcga_uni_search_post(client_no_prism2):
 
     response = client_no_prism2.post("/search",
                 data={"k": "10", "url": True},
-                files={"patch": ("patch.npz", payload, "application/octet-stream")})
+                files={"patch": ("patch.npz", payload,
+                    "application/octet-stream")})
 
     assert response.status_code == 200
     response_data = response.json()
@@ -76,15 +77,15 @@ def test_tcga_uni_search_post(client_no_prism2):
     assert response_data['url'] is None
 
     response_no_params = client_no_prism2.post("/search",
-                                               files={"patch": ("patch.npz", payload, "application/octet-stream")},
-                                               data=None)
+                files={"patch": ("patch.npz", payload,
+                "application/octet-stream")}, data=None)
 
     response_data = response_no_params.json()
     assert len(response_data['hits']) == 100
     assert 'url' in response_data
 
     payload_png = serialize_png(np.random.randint(0, 255,
-                                               size=(224, 224, 3), dtype=np.uint8))
+                size=(224, 224, 3), dtype=np.uint8))
 
     response_png = client_no_prism2.post("/search",
                                          files={"patch": ("patch.png",
@@ -117,11 +118,27 @@ def test_prism2_chat_open_yes_no(client_prism2):
     response = client_prism2.post("/chat",
                                      files={"patch": ("patch.npz",
             payload, "application/octet-stream")},
-            data={'question': "Is cancer present?"})
+            data={'question': "Is cancer present?",
+                  'binary_threshold_for_yes': '0.7'})
 
     assert response.status_code == 200
     assert 'response' in response.json()
-    assert response.json()['response'] == ['Yes']
+    assert response.json()['response'] == ['No (P=0.6348)']
+
+def test_prism2_chat_open_yes_no_raw(client_prism2):
+
+    payload = serialize_crop(np.random.randint(0, 255,
+        size=(224, 224, 3), dtype=np.uint8))
+
+    response = client_prism2.post("/chat",
+                                     files={"patch": ("patch.npz",
+            payload, "application/octet-stream")},
+            data={'question': "Is cancer present?",
+                  'raw_scores_binary': True})
+
+    assert response.status_code == 200
+    assert 'response' in response.json()
+    assert response.json()['response'] == [0.6348]
 
 def test_prism2_chat_no_cuda(client_no_prism2):
 

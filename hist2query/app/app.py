@@ -112,7 +112,8 @@ def create_app(model_loader: Callable[[], Tuple[
         batch = app.state.prism2_processor([image[:, 0]]).to(app.state.device)
         with torch.autocast(app.state.device, torch.bfloat16):
             answers = prism2_prompt_type(app.state.prism2_model, str(params.question),
-                                         batch, int(params.max_token_response))
+                                         batch, int(params.max_token_response),
+                                         params.raw_scores_binary, params.binary_threshold_for_yes)
         return {'response': answers}
 
     return app
