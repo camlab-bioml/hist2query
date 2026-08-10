@@ -54,9 +54,8 @@ def test_tcga_uni_search_post(client_no_prism2):
         size=(224, 224, 3), dtype=np.uint8))
 
     response = client_no_prism2.post("/search",
-                                     files={"patch": ("patch.npz",
-            payload, "application/octet-stream")},
-                                     data={"k": "10", "url": True})
+                data={"k": "10", "url": True},
+                files={"patch": ("patch.npz", payload, "application/octet-stream")})
 
     assert response.status_code == 200
     response_data = response.json()

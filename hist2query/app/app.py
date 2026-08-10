@@ -12,12 +12,14 @@ import pandas as pd
 import torch.nn.functional as tf
 import torchvision
 from hist2query.app.utils import (
-    SearchRequest,
+    TCGAUNI2QueryRequestParams,
     TCGA_RESPONSE_COL_HEADERS,
     preprocess_tiles,
     make_tiles,
     decode_patch,
-    load_hf_model, load_prism2_processing, prism2_prompt_type)
+    load_hf_model,
+    load_prism2_processing,
+    prism2_prompt_type, Prism2ChatRequestParams)
 
 def create_app(model_loader: Callable[[], Tuple[
                timm.models.vision_transformer.VisionTransformer,
@@ -34,15 +36,18 @@ def create_app(model_loader: Callable[[], Tuple[
         (app.state.prism2_model, app.state.prism2_processor, app.state.virchow2_model,
          app.state.virchow2_transform) = None, None, None, None
 
-        if enable_prism2 and torch.cuda.is_available():
-            
-            app.state.uni2_model.to("cpu")
+        app.state.uni2_device = app.state.device
 
+        if enable_prism2 and torch.cuda.is_available():
+
+            app.state.uni2_device = "cpu"
             app.state.virchow2_model, app.state.virchow2_transform, app.state.device = load_hf_model("hf-hub:paige-ai/Virchow2")
             app.state.virchow2_model.to("cpu")
             app.state.prism2_model, app.state.prism2_processor = load_prism2_processing()
             app.state.prism2_model.eval()
             app.state.prism2_model.to(app.state.device)
+
+        app.state.uni2_model.to(app.state.uni2_device)
 
         app.state.index = index_loader()
         app.state.metadata = metadata_loader()
@@ -59,8 +64,7 @@ def create_app(model_loader: Callable[[], Tuple[
     @app.post("/search")
     async def search(
             patch: UploadFile = File(...),
-            # search parameters are optional
-            params: SearchRequest = Depends(SearchRequest.as_form)):
+            params: TCGAUNI2QueryRequestParams = Depends(TCGAUNI2QueryRequestParams.as_form)):
 
         tile_rgb = await decode_patch(patch)
 
@@ -68,7 +72,7 @@ def create_app(model_loader: Callable[[], Tuple[
                     tile_rgb.shape[1] > 224) else [tile_rgb]
 
         batch = preprocess_tiles(tile_rgb, app.state.uni2_transform)
-        batch = batch.to(app.state.device) if not enable_prism2 else batch.to("cpu")
+        batch = batch.to(app.state.uni2_device)
 
         with torch.inference_mode():
             embedding = app.state.uni2_model(batch)
@@ -94,12 +98,12 @@ def create_app(model_loader: Callable[[], Tuple[
 
     @app.post("/chat")
     async def chat(patch: UploadFile = File(...),
-                   question: Union[str, None]=Form(None)):
+                   params: Prism2ChatRequestParams = Depends(Prism2ChatRequestParams.as_form)):
 
         if not torch.cuda.is_available() or any(elem is None for elem in (app.state.virchow2_model, app.state.prism2_model)):
             raise HTTPException(status_code=503,
                 detail="Prism2 not available: CUDA not found in the hist2query deployment.")
-
+        
         tile_rgb = await decode_patch(patch)
 
         image = app.state.virchow2_model(app.state.virchow2_transform(
@@ -107,7 +111,8 @@ def create_app(model_loader: Callable[[], Tuple[
 
         batch = app.state.prism2_processor([image[:, 0]]).to(app.state.device)
         with torch.autocast(app.state.device, torch.bfloat16):
-            answers = prism2_prompt_type(app.state.prism2_model, str(question), batch)
+            answers = prism2_prompt_type(app.state.prism2_model, str(params.question),
+                                         batch, int(params.max_token_response))
         return {'response': answers}
 
     return app

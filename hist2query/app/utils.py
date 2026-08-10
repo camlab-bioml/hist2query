@@ -20,7 +20,7 @@ from transformers import AutoModel, AutoProcessor
 
 TCGA_RESPONSE_COL_HEADERS = ['project', 'tissue', 'slide', 'x', 'y', 'similarity']
 
-class SearchRequest(BaseModel):
+class TCGAUNI2QueryRequestParams(BaseModel):
     # set the default query parameters
     k: Optional[int] = 100
     url: Optional[bool] = True
@@ -32,6 +32,20 @@ class SearchRequest(BaseModel):
         url: Optional[bool] = Form(True)):
 
         return cls(k=k, url=url)
+
+class Prism2ChatRequestParams(BaseModel):
+    # set the default query parameters
+    question: Optional[str] = "Write a report."
+    max_token_response: Optional[int] = 250
+
+    @classmethod
+    def as_form(
+        cls,
+        question: Optional[str] = Form("Write a report."),
+        max_token_response: Optional[int] = Form(250)):
+
+        return cls(question=question,
+                   max_token_response=max_token_response)
 
 def make_tiles(img_patch: Union[np.ndarray, np.array],
                tile_size: int=224, stride: int=224) -> Union[list, None]:
@@ -81,7 +95,8 @@ async def patient_url_gdc_portal(slide_id: str) -> Union[str, None]:
             return f"https://portal.gdc.cancer.gov/files/{file['file_id']}"
     return None
 
-UNI2_KWARGS = {
+HF_MODEL_KWARGS = {
+"hf-hub:MahmoodLab/UNI2-h": {
     "img_size": 224,
     "patch_size": 14,
     "depth": 24,
@@ -94,21 +109,21 @@ UNI2_KWARGS = {
     "mlp_layer": timm.layers.SwiGLUPacked,
     "act_layer": torch.nn.SiLU,
     "reg_tokens": 8,
-    "dynamic_img_size": True}
+    "dynamic_img_size": True},
+    "hf-hub:paige-ai/Virchow2": {'mlp_layer': SwiGLUPacked, 'act_layer': torch.nn.SiLU}
+}
 
-VIRCHOW2_KWARGS = {'mlp_layer': SwiGLUPacked, 'act_layer': torch.nn.SiLU}
 
 def load_hf_model(model_name: str= "hf-hub:MahmoodLab/UNI2-h") -> \
         [timm.models.vision_transformer.VisionTransformer,
          torchvision.transforms.transforms.Compose, str]:
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    model_kwargs = UNI2_KWARGS if "UNI2" in str(model_name) else VIRCHOW2_KWARGS
+    
     model = timm.create_model(
         model_name,
         pretrained=True,
-        **model_kwargs)
+        **HF_MODEL_KWARGS[model_name])
 
     model.eval()
     model.to("cpu")
@@ -137,7 +152,7 @@ async def decode_patch(patch: UploadFile):
         arr = np.load(io.BytesIO(patch_bytes))
         return np.array(arr["data"])
 
-_PRISM2_YES_NO_IDENTIFIERS = ['are', 'is', 'can']
+_PRISM2_YES_NO_IDENTIFIERS = ['are', 'is', 'can', 'could']
 
 def prism2_prompt_type(model: Any, question: str,
                        batch: torch.tensor,
@@ -151,7 +166,7 @@ def prism2_prompt_type(model: Any, question: str,
         attention_mask=batch["attention_mask"],
         question=str(question))
 
-        return ["Yes"] if (binary_resp > 0.5).item() else ["No."]
+        return ["Yes" if score >= 0.5 else "No" for score in binary_resp]
 
     return model.get_response(**batch,
                 prompt=str(question), max_new_tokens=max_tokens_response)

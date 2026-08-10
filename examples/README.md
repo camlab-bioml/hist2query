@@ -16,12 +16,14 @@ conda activate hist2query
 hist2query serve -i tests/fixtures/test_index_added.index -m tests/fixtures/test_metadata.parquet -p 7000
 ```
 
+### Querying TCGA slides with UNI2
+
 In another terminal session, install and execute the example script:
 
 ```commandline
 cd hist2query/examples/
 npm run install
-node queryPNG.js
+node queryTCGAUNI2.js
 ```
 
 The query output is printed to console, and should look something like:
@@ -77,4 +79,22 @@ The query output is printed to console, and should look something like:
   }
 }
 ```
+
+### Querying Prism2 with chat functionality
+
+```commandline
+node queryPrism2Chat.js
+```
+
+**NOTE**: GPU and CUDA must be available on the hist2query deployment, otherwise you'll receive a 503 error:
+
+```commandline
+    data: {
+      detail: 'Prism2 not available: CUDA not found in the hist2query deployment.'
+    }
+  },
+  status: 503
+}
+```
+
 
