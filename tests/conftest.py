@@ -98,15 +98,35 @@ def mock_index_loader(get_current_dir):
     return loader
 
 @pytest.fixture(scope="session")
+def mock_index_loader_none():
+    def loader():
+        return None
+    return loader
+
+@pytest.fixture(scope="session")
 def mock_metadata_loader(get_current_dir):
     def loader():
         return load_metadata(os.path.join(get_current_dir, 'fixtures', 'test_metadata.parquet'))
     return loader
 
 @pytest.fixture(scope="session")
+def mock_metadata_loader_none():
+    def loader():
+        return None
+    return loader
+
+@pytest.fixture(scope="session")
 def client_no_prism2(mock_uni2_loader, mock_index_loader, mock_metadata_loader):
 
     app = create_app(mock_uni2_loader, mock_index_loader, mock_metadata_loader)
+
+    with TestClient(app) as client:
+        yield client
+
+@pytest.fixture(scope="session")
+def client_no_index(mock_uni2_loader, mock_index_loader_none, mock_metadata_loader_none):
+
+    app = create_app(mock_uni2_loader, mock_index_loader_none, mock_metadata_loader_none)
 
     with TestClient(app) as client:
         yield client

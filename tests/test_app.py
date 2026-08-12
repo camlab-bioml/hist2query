@@ -96,6 +96,17 @@ def test_tcga_uni_search_post(client_no_prism2):
     assert len(response_data['hits']) == 10
     assert 'url' in response_data
 
+def test_uni2_query_no_index(client_no_index):
+
+    payload = serialize_crop(np.random.randint(0, 255,
+        size=(224, 224, 3), dtype=np.uint8))
+
+    response = client_no_index.post("/search",
+        data={"k": "10", "url": True},
+        files={"patch": ("patch.npz", payload, "application/octet-stream")})
+
+    assert response.status_code == 503
+
 def test_prism2_chat_open_response(client_prism2):
 
     payload = serialize_crop(np.random.randint(0, 255,

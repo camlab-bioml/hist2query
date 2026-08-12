@@ -37,7 +37,7 @@ class Prism2ChatRequestParams(BaseModel):
     # set the default query parameters
     question: Optional[str] = "Write a report."
     max_token_response: Optional[int] = 250
-    raw_scores_binary: Optional[bool]=False
+    raw_scores_binary: Optional[bool]= True
     binary_threshold_for_yes: Optional[float] = 0.5
 
     @classmethod
@@ -116,8 +116,8 @@ HF_MODEL_KWARGS = {
     "act_layer": torch.nn.SiLU,
     "reg_tokens": 8,
     "dynamic_img_size": True},
-    "hf-hub:paige-ai/Virchow2": {'mlp_layer': SwiGLUPacked, 'act_layer': torch.nn.SiLU}
-}
+    "hf-hub:paige-ai/Virchow2":
+    {'mlp_layer': SwiGLUPacked, 'act_layer': torch.nn.SiLU}}
 
 
 def load_hf_model(model_name: str= "hf-hub:MahmoodLab/UNI2-h") -> \
@@ -144,10 +144,18 @@ def load_prism2_processing():
     return (AutoModel.from_pretrained("paige-ai/Prism2", trust_remote_code=True, torch_dtype=torch.bfloat16),
             AutoProcessor.from_pretrained("paige-ai/Prism2", trust_remote_code=True, torch_dtype=torch.bfloat16))
 
-def load_index(path: Union[str, Path]) -> faiss.Index:
+def load_index(path: Union[str, Path, None]=None) -> Union[faiss.Index, None]:
+    """
+    Read an FAISS index path if it exists, or return `None`
+    """
+    if not path: return None
     return faiss.read_index(path)
 
-def load_metadata(path: Union[str, Path]) -> pd.DataFrame:
+def load_metadata(path: Union[str, Path, None]=None) -> Union[pd.DataFrame, None]:
+    """
+    Read a metadata parquet file matching an FAISS index if the path exists, or return `None`
+    """
+    if not path: return None
     return pd.read_parquet(path)
 
 async def decode_patch(patch: UploadFile):

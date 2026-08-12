@@ -4,16 +4,19 @@ from hist2query.app.utils import (
     load_index,
     load_metadata)
 from hist2query.app.app import create_app
+from hist2query.utils import str_or_none
 
 def configure_parser(parser):
 
     parser.add_argument('-md', "--model", default="hf-hub:MahmoodLab/UNI2-h",
-        help="UNI model name or path")
+        help="UNI model name or path. Default is hf-hub:MahmoodLab/UNI2-h")
+    
+    parser.add_argument('-i', "--index", type=str_or_none, default="None",
+        help="Path to FAISS index. If not specified, then only Prism2 chat is available on CUDA.")
 
-    parser.add_argument('-i', "--index", required=True, help="Path to FAISS index")
-
-    parser.add_argument('-m', "--metadata", required=True,
-        help="Path to metadata parquet file matching the --index.")
+    parser.add_argument('-m', "--metadata", type=str_or_none, default="None",
+        help="Path to metadata parquet file matching the --index."
+             " If not specified, then only Prism2 chat is available on CUDA.")
 
     parser.add_argument('-hs', "--host", default="127.0.0.1")
 

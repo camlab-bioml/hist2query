@@ -66,6 +66,11 @@ def create_app(model_loader: Callable[[], Tuple[
             patch: UploadFile = File(...),
             params: TCGAUNI2QueryRequestParams = Depends(TCGAUNI2QueryRequestParams.as_form)):
 
+        if any(elem is None for elem in (app.state.index, app.state.metadata)):
+            raise HTTPException(status_code=503,
+                                detail="TCGA UNI2 queries not available: Either the FAISS index or matching parquet metadata file "
+                                       "was not supplied to the hist2query deployment.")
+
         tile_rgb = await decode_patch(patch)
 
         tile_rgb = make_tiles(tile_rgb) if (tile_rgb.shape[0] > 224 or
