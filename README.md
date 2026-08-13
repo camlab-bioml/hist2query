@@ -17,6 +17,12 @@ accept the terms of use before installation. **By default, hist2query will insta
 the Virchow2 or Prism2 models, as they require GPU access (see below)**. Once accepted, users should generate and set the `HF_TOKEN` env variable before
 installation. 
 
+**Users must comply with the individual model licences and terms of usage. If you are deploying `hist2query`, 
+you must ensure that every user accessing `hist2query` endpoints has a registered Hugging Face account and has
+accepted the terms of use for each model, respectively.**
+
+For individual usage, API tokens for model downloading should be supplied to as an environment variable:
+
 ```commandline
 export HF_TOKEN="your_hf_token"
 ```
@@ -176,3 +182,9 @@ docker run -p 7000:7000 -v /home/:/home/ -v ~/.cache/huggingface:/root/.cache/hu
 
 **Importantly**, the `-hs` host option should be set to `0.0.0.0`
 for access outside the container. Currently, the container exposes two ports, 6000 and 7000. 
+
+## GPU
+
+By default, both UNI2 and Prism2 will be run on GPU if available, while Virchow2 is fixed to CPU. UNI2 uses approximately 4GB on GPU, while Prism2 uses ~9GB, so a GPU of at least 15GB is required for both models.
+If the index and metadata are not specified, then only Prism2 is loaded; conversely, if `--use-prism2` is not enabled,
+then only UNI2 is loaded. 

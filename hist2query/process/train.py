@@ -45,7 +45,7 @@ def train_index(
                         train_embeddings.append(result)
                         del result
                         gc.collect()
-                except (OSError, KeyError, TypeError): pass
+                except (OSError, KeyError, TypeError, ValueError): pass
                 finally:
                     if local_path is not None and os.path.exists(local_path) and remove_after_processing:
                         os.remove(local_path)

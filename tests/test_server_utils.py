@@ -4,6 +4,7 @@ import pytest
 from hist2query.app.utils import (
     make_tiles,
     patient_url_gdc_portal)
+from hist2query.utils import str_or_none
 
 def test_tile_processing():
     tiles = np.ones((224* 3, 224*3, 3))
@@ -45,3 +46,7 @@ async def test_gdc_portal_slide_url(mock_client):
 
     result_different = await patient_url_gdc_portal("TCGA-12-0670-01Z-00-DX2.h5")
     assert result_different is None
+
+def test_casting_serve_cli_params():
+    assert str_or_none("none") is None
+    assert str_or_none("metadata.parquet") == "metadata.parquet"

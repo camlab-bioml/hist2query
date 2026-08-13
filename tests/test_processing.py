@@ -35,6 +35,24 @@ def test_train_processing(mock_hf_download, mock_slides_project, mock_slide_proc
         assert index.d == 1536
         assert index.is_trained
 
+@patch("hist2query.process.train.process_tcga_slide")
+@patch("hist2query.process.train.subsample_slides_by_project")
+@patch("hist2query.process.train.download_hf_file")
+def test_train_processing_malformed(mock_hf_download, mock_slides_project, mock_slide_process,
+                          get_current_dir):
+
+    # if the input from the download is not compatible (wrong file type or missing tuple elements)
+    mock_hf_download.return_value = (os.path.join(get_current_dir, 'fixtures', 'test_index_added.index'))
+
+    mock_slide_process.return_value = None
+    mock_slides_project.return_value = [os.path.join(get_current_dir, 'fixtures', 'test_index_added.index')]
+
+    with tempfile.TemporaryDirectory() as tmp_test:
+        # expect no arrays to be concatenated
+        with pytest.raises(ValueError):
+            train_index(output_index=os.path.join(tmp_test, 'test_build_train.index'),
+                    nlist=10, nbits=4, patches_per_slide=500, min_slides_project=4, max_slides_project=20,
+                    workers=2, remove_after_processing=False)
 
 @patch("hist2query.process.train.process_tcga_slide")
 @patch("hist2query.process.train.subsample_slides_by_project")

@@ -125,7 +125,7 @@ def load_hf_model(model_name: str= "hf-hub:MahmoodLab/UNI2-h") -> \
          torchvision.transforms.transforms.Compose, str]:
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    
+
     model = timm.create_model(
         model_name,
         pretrained=True,

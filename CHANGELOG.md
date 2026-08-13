@@ -12,11 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Draft/Experimental**: Add `chat` endpoint for `Prism2` dialogue 
-(only available on GPU): yes/no + open response
+(only available on GPU): yes/no + open response (both `UNI2` and `Prism2` on GPU)
 
 ### Changed
 
-- Make CLI index and metadata optional for `serve`: if not specified, `Prism2` is available (only on CUDA)
+- Make CLI index and metadata optional for `serve`: if not specified, 
+`Prism2` is available (only on CUDA) and the `UNI2` model is not loaded
 
 ## [0.2.0] - 2026-08-05
 

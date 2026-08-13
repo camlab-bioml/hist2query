@@ -113,7 +113,7 @@ def add_to_index(repo_hf: str="W8Yi/tcga-wsi-uni2h-features",
                 finally:
                     if local_path is not None and os.path.exists(local_path) and remove_after_processing:
                         os.remove(local_path)
-
+    
     if writer is not None: writer.close()
 
     faiss.write_index(index, output_index)

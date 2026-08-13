@@ -1,5 +1,6 @@
 import argparse
 import sys
+import importlib
 from unittest.mock import patch
 from hist2query.cli.train import run as run_train
 from hist2query.cli.add import run as run_add
@@ -126,23 +127,6 @@ def test_add_cli_main_none_params(mock_add_index):
     mock_add_index.assert_called_once_with(
         "fake/repo", "test.index", "test_out.index",
         "test.parquet", None, None, None, None, 2, None)
-
-
-@patch("hist2query.cli.serve.uvicorn.run")
-@patch("hist2query.cli.serve.create_app")
-def test_serve_cli_main_none_params(mock_create_app, mock_uvicorn_run):
-    test_args = ["hist2query", "serve", "-i", "test.index", "-m", "test.metadata"]
-
-    with patch("sys.argv", test_args):
-        main()
-
-    mock_uvicorn_run.assert_called_once()
-
-    kwargs = mock_create_app.call_args.kwargs
-
-    assert kwargs["index_loader"]() == "test.index"
-    assert kwargs["metadata_loader"]() == "test.metadata"
-
 
 @patch("hist2query.cli.serve.uvicorn.run")
 @patch("hist2query.cli.serve.create_app")

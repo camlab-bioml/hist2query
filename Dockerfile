@@ -37,8 +37,7 @@ RUN python3.11 -m pip install numpy==1.26.4 psutil
 
 RUN python3.11 -m pip install \
     torch==2.6.0 \
-    torchvision==0.21.0 \
-    --index-url https://download.pytorch.org/whl/cu124
+    torchvision==0.21.0
 
 RUN python3.11 -m pip install transformers==4.51.0 accelerate==1.2.1
 

@@ -31,26 +31,27 @@ def create_app(model_loader: Callable[[], Tuple[
     @asynccontextmanager
     async def lifespan(app: FastAPI):
 
-        app.state.uni2_model, app.state.uni2_transform, app.state.device = model_loader()
+        app.state.index = index_loader()
+        app.state.metadata = metadata_loader()
+        (app.state.uni2_model, app.state.prism2_model, app.state.uni2_transform, app.state.prism2_processor,
+        app.state.virchow2_model, app.state.virchow2_transform) = None, None, None, None, None, None
+        app.state.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        (app.state.prism2_model, app.state.prism2_processor, app.state.virchow2_model,
-         app.state.virchow2_transform) = None, None, None, None
+        if app.state.index is not None and app.state.metadata is not None:
 
-        app.state.uni2_device = app.state.device
+            # only load uni2 if the index and metadata are present
+            app.state.uni2_model, app.state.uni2_transform, app.state.device = model_loader()
+            # allow uni2 to be on GPU with Prism2
+            app.state.uni2_model.to(app.state.device)
 
         if enable_prism2 and torch.cuda.is_available():
 
-            app.state.uni2_device = "cpu"
+            # keep Virchow2 on CPU to avoid having too many models on GPU
             app.state.virchow2_model, app.state.virchow2_transform, app.state.device = load_hf_model("hf-hub:paige-ai/Virchow2")
             app.state.virchow2_model.to("cpu")
             app.state.prism2_model, app.state.prism2_processor = load_prism2_processing()
             app.state.prism2_model.eval()
             app.state.prism2_model.to(app.state.device)
-
-        app.state.uni2_model.to(app.state.uni2_device)
-
-        app.state.index = index_loader()
-        app.state.metadata = metadata_loader()
 
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                "tcga_uni_slide_filenames.pkl"), "rb") as slide_names_open:
@@ -77,7 +78,7 @@ def create_app(model_loader: Callable[[], Tuple[
                     tile_rgb.shape[1] > 224) else [tile_rgb]
 
         batch = preprocess_tiles(tile_rgb, app.state.uni2_transform)
-        batch = batch.to(app.state.uni2_device)
+        batch = batch.to(app.state.device)
 
         with torch.inference_mode():
             embedding = app.state.uni2_model(batch)
@@ -107,8 +108,9 @@ def create_app(model_loader: Callable[[], Tuple[
 
         if not torch.cuda.is_available() or any(elem is None for elem in (app.state.virchow2_model, app.state.prism2_model)):
             raise HTTPException(status_code=503,
-                detail="Prism2 not available: CUDA not found in the hist2query deployment.")
-        
+                detail="Prism2 not available: CUDA not found in the hist2query deployment, or "
+                       "Prism2 was not enabled with `--use-prism2`.")
+
         tile_rgb = await decode_patch(patch)
 
         image = app.state.virchow2_model(app.state.virchow2_transform(
