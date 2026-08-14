@@ -21,7 +21,7 @@ dependencies = [
     "fastapi",
     "fastparquet",
     "h5py",
-    "httpx2",
+    "httpx",
     "huggingface_hub",
     "networkx",
     "numpy",
@@ -31,14 +31,17 @@ dependencies = [
     "requests",
     "timm",
     "torch",
-    "uni @ git+https://github.com/mahmoodlab/UNI.git",
+    "transformers",
     "uvicorn"]
 
 [project.optional-dependencies]
+uni2 = ["uni @ git+https://github.com/mahmoodlab/UNI.git"]
+
 dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov"]
+
 prism2 = [
     "accelerate==1.2.1",
     "einops",
