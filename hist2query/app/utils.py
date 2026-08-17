@@ -76,6 +76,8 @@ def preprocess_tiles(tiles: list, transform: Callable) -> torch.tensor:
         img = transform(img)
         processed.append(img)
 
+    # TODO: should we pass the mean tensor here instead of a stack to the model?
+    # appears comparable similarity results but somehow slower
     return torch.stack(processed)
 
 async def patient_url_gdc_portal(slide_id: str) -> Union[str, None]:
@@ -133,7 +135,7 @@ def load_hf_model(model_name: str= "hf-hub:MahmoodLab/UNI2-h") -> \
 
     model.eval()
     model.to("cpu")
-
+    
     transform = create_transform(**resolve_data_config(
             model.pretrained_cfg, model=model))
 

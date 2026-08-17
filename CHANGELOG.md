@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-08-12
+## [0.3.0] - 2026-08-17
 
 ### Added
 
@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Make CLI index and metadata optional for `serve`: if not specified, 
 `Prism2` is available (only on CUDA) and the `UNI2` model is not loaded
+- model inference modes use asyncio locking
 
 ## [0.2.0] - 2026-08-05
 

@@ -1,10 +1,11 @@
-from typing import Union, Tuple
+from typing import Tuple
 import pickle
 import os
+import asyncio
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from PIL import Image
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 import torch
 import timm
 import faiss
@@ -58,6 +59,8 @@ def create_app(model_loader: Callable[[], Tuple[
             # use the pkl as a package data file and map the slide URLs to avoid nested per request GDC portal API calls
             app.state.tcga_uni_slide_filenames = pickle.load(slide_names_open)
 
+        app.state.inference_lock = asyncio.Lock()
+
         yield
 
     app = FastAPI(title="hist2query", lifespan=lifespan)
@@ -78,10 +81,13 @@ def create_app(model_loader: Callable[[], Tuple[
                     tile_rgb.shape[1] > 224) else [tile_rgb]
 
         batch = preprocess_tiles(tile_rgb, app.state.uni2_transform)
+        # a single transform per image is faster, but results seem notieceably worse
+        # batch = app.state.uni2_transform(Image.fromarray(tile_rgb)).unsqueeze(dim=0)
         batch = batch.to(app.state.device)
 
-        with torch.inference_mode():
-            embedding = app.state.uni2_model(batch)
+        async with app.state.inference_lock:
+            with torch.inference_mode():
+                embedding = app.state.uni2_model(batch)
 
         # normalization must match what was used to create the index
         embedding = embedding.mean(dim=0)
@@ -91,6 +97,8 @@ def create_app(model_loader: Callable[[], Tuple[
 
         scores, indices = app.state.index.search(embedding, params.k)
 
+        del tile_rgb, batch, embedding
+        
         resp = {'hits': None, 'url': None}
         results = app.state.metadata.iloc[indices[0]]
         results['similarity'] = scores[0]
@@ -113,14 +121,23 @@ def create_app(model_loader: Callable[[], Tuple[
 
         tile_rgb = await decode_patch(patch)
 
-        image = app.state.virchow2_model(app.state.virchow2_transform(
-                Image.fromarray(tile_rgb).convert('RGB')).unsqueeze(0))
+        tile_rgb = make_tiles(tile_rgb) if (tile_rgb.shape[0] > 224 or
+                    tile_rgb.shape[1] > 224) else [tile_rgb]
 
-        batch = app.state.prism2_processor([image[:, 0]]).to(app.state.device)
-        with torch.autocast(app.state.device, torch.bfloat16):
-            answers = prism2_prompt_type(app.state.prism2_model, str(params.question),
+        tile_batch = []
+        for tile_rgb in tile_rgb:
+            output = app.state.virchow2_model(app.state.virchow2_transform(
+                Image.fromarray(tile_rgb).convert("RGB")).unsqueeze(0))
+            tile_batch.append(output[:, 0])
+
+        tile_batch = torch.cat(tile_batch, dim=0)
+        batch = app.state.prism2_processor([tile_batch]).to(app.state.device)
+        async with app.state.inference_lock:
+            with torch.autocast(app.state.device, torch.bfloat16):
+                answers = prism2_prompt_type(app.state.prism2_model, str(params.question),
                                          batch, int(params.max_token_response),
                                          params.raw_scores_binary, params.binary_threshold_for_yes)
+        del tile_rgb, tile_batch, batch
         return {'response': answers}
 
     return app

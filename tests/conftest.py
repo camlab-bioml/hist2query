@@ -52,7 +52,7 @@ class MockPrism2Model:
         return "This is cancerous breast tissue"
 
 class MockPrism2Transform:
-
+    
     batch = None
     def __call__(self, img):
         # mock a tensor value that has a .to(device) property
