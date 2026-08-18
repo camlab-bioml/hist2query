@@ -8,8 +8,8 @@ from PIL import Image
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 import torch
 import timm
+import polars as pl
 import faiss
-import pandas as pd
 import torch.nn.functional as tf
 import torchvision
 from hist2query.app.utils import (
@@ -26,7 +26,7 @@ def create_app(model_loader: Callable[[], Tuple[
                timm.models.vision_transformer.VisionTransformer,
                torchvision.transforms.transforms.Compose, str]],
                index_loader: Callable[[], [faiss.Index]],
-               metadata_loader: Callable[[], [pd.DataFrame]],
+               metadata_loader: Callable[[], [pl.DataFrame]],
                enable_prism2: bool=False):
 
     @asynccontextmanager
@@ -98,15 +98,19 @@ def create_app(model_loader: Callable[[], Tuple[
         scores, indices = app.state.index.search(embedding, params.k)
 
         del tile_rgb, batch, embedding
-        
+
         resp = {'hits': None, 'url': None}
-        results = app.state.metadata.iloc[indices[0]]
-        results['similarity'] = scores[0]
-        resp['hits'] = results[TCGA_RESPONSE_COL_HEADERS].to_dict(orient="records")
+        indices_use = indices[0][indices[0] >= 0]
+        scores_use = scores[0][indices[0] >= 0]
+        results = (app.state.metadata
+                   .filter(pl.col("index").is_in(indices_use))
+                   .select(app.state.metadata.collect_schema().names()).collect())
+        results = results.with_columns(pl.Series("similarity", scores_use))
+        resp['hits'] = results.select(TCGA_RESPONSE_COL_HEADERS).to_dicts()
         # Add a URL per slide if requested, keep as separate key in the response to avoid redundant data packets
         if params.url:
             resp['url'] = {key: value for key, value in app.state.tcga_uni_slide_filenames.items()
-                           if key in results['slide'].unique().tolist()}
+                           if key in results['slide'].unique().to_list()}
         return resp
 
 

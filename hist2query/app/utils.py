@@ -5,7 +5,7 @@ from typing import Union
 from pydantic import BaseModel
 from fastapi import Form, UploadFile
 import numpy as np
-import pandas as pd
+import polars as pl
 import torch
 from PIL import Image
 import timm
@@ -151,14 +151,14 @@ def load_index(path: Union[str, Path, None]=None) -> Union[faiss.Index, None]:
     Read an FAISS index path if it exists, or return `None`
     """
     if not path: return None
-    return faiss.read_index(path)
+    return faiss.read_index(path, faiss.IO_FLAG_MMAP)
 
-def load_metadata(path: Union[str, Path, None]=None) -> Union[pd.DataFrame, None]:
+def load_metadata(path: Union[str, Path, None]=None) -> Union[pl.DataFrame, pl.LazyFrame, None]:
     """
     Read a metadata parquet file matching an FAISS index if the path exists, or return `None`
     """
     if not path: return None
-    return pd.read_parquet(path)
+    return pl.scan_parquet(path)
 
 async def decode_patch(patch: UploadFile):
     if str(patch.filename).endswith("png"):

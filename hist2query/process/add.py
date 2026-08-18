@@ -6,8 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 import faiss
 import numpy as np
-import pandas as pd
-import pyarrow as pa
+import polars as pl
 import pyarrow.parquet as pq
 from hist2query.process.download import (
     get_hf_projects,
@@ -78,8 +77,7 @@ def add_to_index(repo_hf: str="W8Yi/tcga-wsi-uni2h-features",
                     dl_path, local_path = None, None
                     if result is not None:
                         dl_path, local_path = result
-                        sam_name, project_name = str(dl_path).split("/features/")[1], str(dl_path).split("/features/")[
-                            0]
+                        sam_name, project_name = str(dl_path).split("/features/")[1], str(dl_path).split("/features/")[0]
                         result = process_tcga_slide(local_path, sam_name, project_name, patches_per_slide, False)
                         embeddings = result["embeddings"]
 
@@ -89,16 +87,17 @@ def add_to_index(repo_hf: str="W8Yi/tcga-wsi-uni2h-features",
 
                         index.add_with_ids(embeddings, ids)
 
-                        df = pd.DataFrame({
-                            "index": ids,
+                        df = pl.DataFrame({"index": ids,
                             "project": result["project"],
-                            "tissue": TCGA_STUDY_CODES[result["project"]],
                             "slide": result["slide"],
                             "x": result["coords"][:, 0],
                             "y": result["coords"][:, 1],
-                        })
+                            }).with_columns(
+                            pl.col("project")
+                            .replace(TCGA_STUDY_CODES)
+                            .alias("tissue"))
 
-                        metadata_out = pa.Table.from_pandas(df, preserve_index=False)
+                        metadata_out = df.to_arrow()
 
                         if writer is None:
                             writer = pq.ParquetWriter(output_metadata, metadata_out.schema,

@@ -25,7 +25,7 @@ dependencies = [
     "huggingface_hub",
     "networkx",
     "numpy",
-    "pandas",
+    "polars",
     "pyarrow",
     "python-multipart",
     "requests",

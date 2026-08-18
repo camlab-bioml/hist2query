@@ -4,8 +4,8 @@ import os
 import faiss
 import h5py
 import numpy as np
-import pandas as pd
 import pytest
+import polars as pl
 from hist2query.process.train import train_index
 from hist2query.process.add import add_to_index
 
@@ -107,12 +107,11 @@ def test_add_processing(mock_hf_download, mock_slides_project, mock_slide_proces
         index_back = faiss.read_index(os.path.join(tmp_test, 'test_index_added_more.index'))
         assert index_back.d > 0
         assert index_back.ntotal > num_vectors
-        metadata_in = pd.read_parquet(os.path.join(tmp_test, 'test_more_added.parquet'))
+        metadata_in = pl.read_parquet(os.path.join(tmp_test, 'test_more_added.parquet'))
         assert len(metadata_in) == 500
-        assert metadata_in['project'].unique().tolist() == ['TCGA-BRCA_OTHERS']
-        assert metadata_in['slide'].unique().tolist() == ['TCGA-VD-A8KA-01Z-00-DX1.h5']
-        assert metadata_in['tissue'].unique().tolist() == ['Breast invasive carcinoma (Other)']
-
+        assert metadata_in['project'].unique().to_list() == ['TCGA-BRCA_OTHERS']
+        assert metadata_in['slide'].unique().to_list() == ['TCGA-VD-A8KA-01Z-00-DX1.h5']
+        assert metadata_in['tissue'].unique().to_list() == ['Breast invasive carcinoma (Other)']
 
 @patch("hist2query.process.add.process_tcga_slide")
 @patch("hist2query.process.add.subsample_slides_by_project")
