@@ -7,12 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-08-18
+## [0.3.0] - 2026-08-19
 
 ### Added
 
 - **Draft/Experimental**: Add `chat` endpoint for `Prism2` dialogue 
 (only available on GPU): yes/no + open response (both `UNI2` and `Prism2` on GPU)
+- Ability to include or exclude projects or tissue from TCGA indexing #4
 
 ### Changed
 

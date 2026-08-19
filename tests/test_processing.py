@@ -138,3 +138,87 @@ def test_add_processing_empty(mock_hf_download, mock_slides_project, mock_slide_
         assert not os.path.isfile(os.path.join(tmp_test, 'test_more_added.parquet'))
         index_back = faiss.read_index(os.path.join(tmp_test, 'test_index_added_more.index'))
         assert index_back.ntotal == num_vectors
+
+@patch("hist2query.process.add.process_tcga_slide")
+@patch("hist2query.process.add.get_hf_projects")
+@patch("hist2query.process.add.download_hf_file")
+def test_add_processing_include_specific(mock_hf_download, mock_slides_project, mock_slide_process,
+                                         get_current_dir):
+    mock_hf_download.return_value = ('TCGA-BRCA_OTHERS/features/TCGA-VD-A8KA-01Z-00-DX1.h5',
+                                     os.path.join(get_current_dir, 'fixtures', 'TCGA-VD-A8KA-01Z-00-DX1.h5'))
+    with h5py.File(os.path.join(get_current_dir, 'fixtures', 'TCGA-VD-A8KA-01Z-00-DX1.h5'), "r") as f:
+        embeddings = np.squeeze(f["features"][:]).astype(np.float32)
+        coords = np.squeeze(f["coords"][:]).astype(np.uint32)
+        indices = np.random.choice(len(embeddings),
+                                   min(500, len(embeddings)), replace=False)
+        embeddings = embeddings[indices]
+        mock_slide_process.return_value = {"project": "TCGA-BRCA_OTHERS",
+                                           "slide": 'TCGA-VD-A8KA-01Z-00-DX1.h5',
+                                           "tissue": "Breast invasive carcinoma (Other)",
+                                           "embeddings": embeddings, "coords": coords[indices]}
+
+        mock_slides_project.return_value = {"TCGA-BRCA_OTHERS": os.path.join(get_current_dir,
+                                            'fixtures', 'TCGA-VD-A8KA-01Z-00-DX1.h5'),
+                                        # allow this one as it's part of the inclusion list
+                                        "TCGA-KIRP": [os.path.join(get_current_dir,
+                                            'fixtures', 'TCGA-VD-A8KA-01Z-00-DX1.h5')]}
+
+    index_in = os.path.join(get_current_dir, 'fixtures', 'test_index_added.index')
+    index_read = faiss.read_index(index_in)
+    num_vectors = index_read.ntotal
+    with tempfile.TemporaryDirectory() as tmp_test:
+        index_out = os.path.join(tmp_test, 'test_index_added_more.index')
+        metadata_out = os.path.join(tmp_test, 'test_more_added.parquet')
+        add_to_index(input_index=index_in, output_index=index_out,
+                     output_metadata=metadata_out, workers=2,
+                     patches_per_slide=500, min_slides_project=1, max_slides_project=2,
+                     remove_after_processing=False, types_include="TCGA-KIRP")
+        assert os.path.isfile(os.path.join(tmp_test, 'test_index_added_more.index'))
+        assert os.path.isfile(os.path.join(tmp_test, 'test_more_added.parquet'))
+        index_back = faiss.read_index(os.path.join(tmp_test, 'test_index_added_more.index'))
+        assert index_back.d > 0
+        assert index_back.ntotal > num_vectors
+        metadata_in = pl.read_parquet(os.path.join(tmp_test, 'test_more_added.parquet'))
+        # 500 should have been added only once as one sample was excluded
+        assert len(metadata_in) == 500
+        assert metadata_in['project'].unique().to_list() == ['TCGA-BRCA_OTHERS']
+        assert metadata_in['slide'].unique().to_list() == ['TCGA-VD-A8KA-01Z-00-DX1.h5']
+        assert metadata_in['tissue'].unique().to_list() == ['Breast invasive carcinoma (Other)']
+
+@patch("hist2query.process.add.process_tcga_slide")
+@patch("hist2query.process.add.get_hf_projects")
+@patch("hist2query.process.add.download_hf_file")
+def test_add_processing_exclude_specific(mock_hf_download, mock_slides_project, mock_slide_process,
+                        get_current_dir):
+    mock_hf_download.return_value = ('TCGA-BRCA_OTHERS/features/TCGA-VD-A8KA-01Z-00-DX1.h5',
+                                     os.path.join(get_current_dir, 'fixtures', 'TCGA-VD-A8KA-01Z-00-DX1.h5'))
+    with h5py.File(os.path.join(get_current_dir, 'fixtures', 'TCGA-VD-A8KA-01Z-00-DX1.h5'), "r") as f:
+        embeddings = np.squeeze(f["features"][:]).astype(np.float32)
+        coords = np.squeeze(f["coords"][:]).astype(np.uint32)
+        indices = np.random.choice(len(embeddings),
+                                   min(500, len(embeddings)), replace=False)
+        embeddings = embeddings[indices]
+        mock_slide_process.return_value = {"project": "TCGA-BRCA_OTHERS",
+                                           "slide": 'TCGA-VD-A8KA-01Z-00-DX1.h5',
+                                           "tissue": "Breast invasive carcinoma (Other)",
+                                           "embeddings": embeddings, "coords": coords[indices]}
+
+    mock_slides_project.return_value = {"TCGA-BRCA_OTHERS": os.path.join(get_current_dir,
+                                                'fixtures', 'TCGA-VD-A8KA-01Z-00-DX1.h5')}
+
+    index_in = os.path.join(get_current_dir, 'fixtures', 'test_index_added.index')
+    index_read = faiss.read_index(index_in)
+    num_vectors = index_read.ntotal
+    with tempfile.TemporaryDirectory() as tmp_test:
+        index_out = os.path.join(tmp_test, 'test_index_added_more.index')
+        metadata_out = os.path.join(tmp_test, 'test_more_added.parquet')
+        add_to_index(input_index=index_in, output_index=index_out,
+                     output_metadata=metadata_out, workers=2,
+                     patches_per_slide=500, min_slides_project=1, max_slides_project=2,
+                     remove_after_processing=False, types_exclude="TCGA-BRCA")
+        assert os.path.isfile(os.path.join(tmp_test, 'test_index_added_more.index'))
+        assert not os.path.isfile(os.path.join(tmp_test, 'test_more_added.parquet'))
+        index_back = faiss.read_index(os.path.join(tmp_test, 'test_index_added_more.index'))
+        assert index_back.d > 0
+        # nothing should be added since the project was excluded
+        assert index_back.ntotal == num_vectors

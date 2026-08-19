@@ -102,10 +102,14 @@ def create_app(model_loader: Callable[[], Tuple[
         resp = {'hits': None, 'url': None}
         indices_use = indices[0][indices[0] >= 0]
         scores_use = scores[0][indices[0] >= 0]
-        results = (app.state.metadata
-                   .filter(pl.col("index").is_in(indices_use))
-                   .select(app.state.metadata.collect_schema().names()).collect())
+        results = app.state.metadata.filter(pl.col("index").is_in(indices_use)).collect()
+        # sort the rows after collect to match the scores
+        order = {idx: i for i, idx in enumerate(indices_use)}
+
+        results = (results.with_columns(pl.col("index").replace(order).alias("_order"))
+                   .sort("_order").drop("_order"))
         results = results.with_columns(pl.Series("similarity", scores_use))
+
         resp['hits'] = results.select(TCGA_RESPONSE_COL_HEADERS).to_dicts()
         # Add a URL per slide if requested, keep as separate key in the response to avoid redundant data packets
         if params.url:

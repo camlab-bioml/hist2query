@@ -11,6 +11,8 @@ from hist2query.process.download import (
     get_hf_projects,
     subsample_slides_by_project,
     download_hf_file)
+from hist2query.utils import set_tcga_projects_include
+
 
 def train_index(
     repo_hf: str="W8Yi/tcga-wsi-uni2h-features",
@@ -24,10 +26,15 @@ def train_index(
     max_slides_project: Union[int, None]=75,
     workers: int=16,
     hf_token: Union[str, None]=None,
-    remove_after_processing: bool=True):
+    remove_after_processing: bool=True,
+    types_include: Union[str,None]=None,
+    types_exclude: Union[str,None]=None):
 
-    sampled = subsample_slides_by_project(get_hf_projects(repo_hf), slide_prop,
-                                          min_slides_project, max_slides_project)
+    projects_default = get_hf_projects(repo_hf)
+    project_names_keep = set_tcga_projects_include(types_include, types_exclude)
+    projects_keep = {key: value for key, value in projects_default.items() if key in project_names_keep}
+
+    sampled = subsample_slides_by_project(projects_keep, slide_prop, min_slides_project, max_slides_project)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         with ThreadPoolExecutor(max_workers=workers) as pool:

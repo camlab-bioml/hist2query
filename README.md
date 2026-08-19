@@ -70,6 +70,13 @@ options:
   -v, --version         Show the current hist2query version then exit. Does not execute the application.
 ```
 
+Users can train or add embeddings to a train index using the `train` and `add` CLi functions, 
+respectively. This can take the full TCGA dataset, or custom inclusion and
+exclusion of cancer types by either project or tissue type. 
+**NOTE**: if users train an index on a subset of types, only the matching types
+should be added to the index through `add`; failure to do so could results
+in poor quality retrieval/querying. 
+
 ### Querying a patch using the `/search` endpoint
 
 #### Python
