@@ -87,7 +87,7 @@ def test_tcga_uni_search_post(client_no_prism2):
     assert 'url' in response_data
 
     payload_png = serialize_png(np.random.randint(0, 255,
-                size=(224, 224, 3), dtype=np.uint8))
+                size=(300, 300, 3), dtype=np.uint8))
 
     response_png = client_no_prism2.post("/search",
                                          files={"patch": ("patch.png",

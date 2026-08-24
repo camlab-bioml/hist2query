@@ -77,10 +77,7 @@ def create_app(model_loader: Callable[[], Tuple[
 
         tile_rgb = await decode_patch(patch)
 
-        tile_rgb = make_tiles(tile_rgb) if (tile_rgb.shape[0] > 224 or
-                    tile_rgb.shape[1] > 224) else [tile_rgb]
-
-        batch = preprocess_tiles(tile_rgb, app.state.uni2_transform)
+        batch = preprocess_tiles(make_tiles(tile_rgb))
         # a single transform per image is faster, but results seem notieceably worse
         # batch = app.state.uni2_transform(Image.fromarray(tile_rgb)).unsqueeze(dim=0)
         batch = batch.to(app.state.device)
@@ -129,10 +126,10 @@ def create_app(model_loader: Callable[[], Tuple[
 
         tile_rgb = await decode_patch(patch)
 
-        tile_rgb = make_tiles(tile_rgb) if (tile_rgb.shape[0] > 224 or
-                    tile_rgb.shape[1] > 224) else [tile_rgb]
+        tile_rgb = make_tiles(tile_rgb)
 
         tile_batch = []
+        # cannot use the same tile generation function as for uni2 as only the class token is pulled from Virchow2
         for tile_rgb in tile_rgb:
             output = app.state.virchow2_model(app.state.virchow2_transform(
                 Image.fromarray(tile_rgb).convert("RGB")).unsqueeze(0))

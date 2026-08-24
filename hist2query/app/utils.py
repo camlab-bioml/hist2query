@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from pathlib import Path
 from typing import Optional, Any
 from typing import Union
@@ -53,32 +52,91 @@ class Prism2ChatRequestParams(BaseModel):
                    raw_scores_binary=raw_scores_binary,
                    binary_threshold_for_yes=binary_threshold_for_yes)
 
-def make_tiles(img_patch: Union[np.ndarray, np.array],
-               tile_size: int=224, stride: int=224) -> Union[list, None]:
+def make_tiles(
+    img_patch: np.ndarray,
+    tile_size: int = 224,
+    stride: int = 224) -> Optional[np.ndarray]:
+    """Split an image into non-overlapping 224x224 tiles.
 
-    if len(img_patch.shape) < 3:
-        return None
-    img_patch = img_patch[:, :, :3] if img_patch.shape[2] != 3 else img_patch
+    Only complete tiles are returned; pixels along the right/bottom edges
+    that don't fit a complete tile are discarded.
+
+    Returns
+    -------
+    np.ndarray or None
+        Array with shape (N, tile_size, tile_size, 3), or None if the
+        input doesn't have at least 3 dimensions.
+    """
+    if img_patch.ndim < 3: return None
+
+    img_patch = img_patch[:, :, :3]
+
     H, W, _ = img_patch.shape
+
+    # Fast reshape path for the common case where tiles don't overlap.
+    if stride == tile_size:
+        H_trim = (H // tile_size) * tile_size
+        W_trim = (W // tile_size) * tile_size
+
+        img_patch = img_patch[:H_trim, :W_trim]
+
+        n_y = H_trim // tile_size
+        n_x = W_trim // tile_size
+
+        # HWC -> (n_y, tile_size, n_x, tile_size, C)
+        tiles = img_patch.reshape(n_y, tile_size, n_x, tile_size, 3)
+
+        # -> (n_y, n_x, tile_size, tile_size, C)
+        # -> (N, tile_size, tile_size, C)
+        return tiles.transpose(0, 2, 1, 3, 4).reshape(-1, tile_size, tile_size, 3)
+
+    # Fallback for overlapping tiles.
     tiles = []
+
     for y in range(0, H - tile_size + 1, stride):
         for x in range(0, W - tile_size + 1, stride):
-            new_tile = img_patch[y:y+tile_size, x:x+tile_size]
-            tiles.append(new_tile)
-    return tiles
+            tiles.append(img_patch[y:y + tile_size, x:x + tile_size])
 
-def preprocess_tiles(tiles: list, transform: Callable) -> torch.tensor:
+    if not tiles:
+        return np.empty((0, tile_size, tile_size, 3), dtype=img_patch.dtype)
 
-    processed = []
+    return np.stack(tiles)
 
-    for tile in tiles:
-        img = Image.fromarray(tile.astype(np.uint8))
-        img = transform(img)
-        processed.append(img)
+def preprocess_tiles(
+    tiles: np.ndarray) -> torch.Tensor:
+    """Convert uint8 RGB tiles to the tensor format expected by UNI2.
 
-    # TODO: should we pass the mean tensor here instead of a stack to the model?
-    # appears comparable similarity results but somehow slower
-    return torch.stack(processed)
+    For 224x224 uint8 RGB tiles, this reproduces:
+
+        Resize(224)
+        CenterCrop(224)
+        MaybeToTensor()
+        Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225])
+
+    Aka the standard ImageNet normalization.
+    """
+
+    if tiles.ndim != 4: raise ValueError(f"Expected tiles with shape (N, H, W, C), got {tiles.shape}")
+
+    if tiles.shape[-1] != 3: raise ValueError(f"Expected RGB tiles with 3 channels, got {tiles.shape[-1]}")
+
+    # Numpy (N, H, W, C) to # PyTorch (N, C, H, W)
+    x = torch.from_numpy(tiles).permute(0, 3, 1, 2)
+
+    # MaybeToTensor() for uint8 input effectively scales to [0, 1].
+    x = x.float().div_(255.0)
+
+    # Same normalization used by UNI2.
+    mean = torch.tensor([0.485, 0.456, 0.406],dtype=x.dtype,).view(1, 3, 1, 1)
+
+    std = torch.tensor(
+        [0.229, 0.224, 0.225], dtype=x.dtype).view(1, 3, 1, 1)
+
+    x.sub_(mean).div_(std)
+
+    return x
 
 async def patient_url_gdc_portal(slide_id: str) -> Union[str, None]:
     """
@@ -90,7 +148,7 @@ async def patient_url_gdc_portal(slide_id: str) -> Union[str, None]:
                 "value": ["-".join(slide_id.split("-")[:3])]}},
         "fields": "file_id,file_name,data_type,data_format,cases.submitter_id",
         "format": "JSON", "size": 100}
-
+    
     async with httpx.AsyncClient() as client:
         r = await client.post("https://api.gdc.cancer.gov/files", json=query)
 
@@ -151,7 +209,7 @@ def load_index(path: Union[str, Path, None]=None) -> Union[faiss.Index, None]:
     Read an FAISS index path if it exists, or return `None`
     """
     if not path: return None
-    return faiss.read_index(path, faiss.IO_FLAG_MMAP)
+    return faiss.read_index(path, faiss.IO_FLAG_MMAP | faiss.IO_FLAG_READ_ONLY)
 
 def load_metadata(path: Union[str, Path, None]=None) -> Union[pl.DataFrame, pl.LazyFrame, None]:
     """

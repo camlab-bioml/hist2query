@@ -77,6 +77,10 @@ exclusion of cancer types by either project or tissue type.
 should be added to the index through `add`; failure to do so could results
 in poor quality retrieval/querying. 
 
+**NOTE**: An index comprised of the entire TCGA cohort is approximately
+17 GB on disk (~16 for the index file and ~1 for the parquet metadata), but 
+is likely to consume only 4-5GB of RAM. 
+
 ### Querying a patch using the `/search` endpoint
 
 #### Python

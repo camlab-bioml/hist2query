@@ -1,6 +1,30 @@
+import numpy as np
 from hist2query.utils import (
     set_tcga_projects_include,
     TCGA_STUDY_CODES)
+from hist2query.app.utils import make_tiles
+
+def test_make_tiles():
+    tiles = make_tiles(np.random.randint(0, 255, size=(448, 448, 3)))
+    # should be a tile per 224x224 pixel patch
+    assert tiles.shape[0] == 4
+    missing_edges = make_tiles(np.random.randint(0, 255, size=(700, 700, 3)))
+    assert missing_edges.shape[0] == 9
+    stride_larger = make_tiles(np.random.randint(0, 255, size=(100, 100, 3)))
+    assert stride_larger.shape[0] == 0
+
+    stride_smaller = make_tiles(np.random.randint(0, 255, size=(224, 224, 3)), stride=100)
+    assert stride_smaller.shape[0] == 1
+
+    # gives positions, (0, 0), (0, 100), (100, 0), (100, 100)
+    stride_smaller_larger_image = make_tiles(
+        np.random.randint(0, 255, size=(400, 400, 3), dtype=np.uint8),
+        tile_size=224,
+        stride=100)
+    assert stride_smaller_larger_image.shape[0] == 4
+
+    no_tiles = make_tiles(np.random.randint(0, 255, size=(1, 1, 3)), stride=100)
+    assert no_tiles.shape[0] == 0
 
 def test_set_tcga_projects():
 
