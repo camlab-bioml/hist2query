@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-24
+
+### Added
+
+- **Draft/Experimental**: Add `chat` endpoint for `Prism2` dialogue 
+(only available on GPU): yes/no + open response (both `UNI2` and `Prism2` on GPU)
+- Ability to include or exclude projects or tissue from TCGA indexing #4
+
+### Changed
+
+- Make CLI index and metadata optional for `serve`: if not specified, 
+`Prism2` is available (only on CUDA) and the `UNI2` model is not loaded
+- model inference modes use asyncio locking
+- FAISS metadata to `polars` operations
+
 ## [0.2.0] - 2026-08-05
 
 ### Added

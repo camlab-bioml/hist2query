@@ -1,8 +1,6 @@
 import os
 from unittest.mock import patch
-
 import numpy as np
-
 from hist2query.process.download import (
     get_hf_projects,
     process_tcga_slide,

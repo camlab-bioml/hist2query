@@ -26,7 +26,10 @@ async function queryHist2Query(
 
     const form = new FormData();
 
-    form.append(
+    form.append("k", 5);
+    form.append("url", "true");
+
+     form.append(
         "patch",
         pngBuffer,
         {
@@ -34,9 +37,6 @@ async function queryHist2Query(
             contentType: "image/png"
         }
     );
-
-    form.append("k", "5");
-    form.append("url", "true");
 
 
     const response = await axios.post(

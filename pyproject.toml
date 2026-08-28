@@ -21,24 +21,35 @@ dependencies = [
     "fastapi",
     "fastparquet",
     "h5py",
-    "httpx2",
+    "httpx",
     "huggingface_hub",
     "networkx",
     "numpy",
-    "pandas",
+    "polars",
     "pyarrow",
     "python-multipart",
     "requests",
-    "torch",
     "timm",
-    "uni @ git+https://github.com/mahmoodlab/UNI.git",
+    "torch",
+    "transformers",
     "uvicorn"]
 
 [project.optional-dependencies]
+uni2 = ["uni @ git+https://github.com/mahmoodlab/UNI.git"]
+
 dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov"]
+
+prism2 = [
+    "accelerate==1.2.1",
+    "einops",
+    "flash-attn==2.7.4.post1",
+    "psutil",
+    "safetensors",
+    "torch==2.6.0",
+    "transformers==4.51.0"]
 
 [project.urls]
 Homepage = "https://github.com/camlab-bioml/hist2query"

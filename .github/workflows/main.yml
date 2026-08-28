@@ -1,5 +1,4 @@
 name: hist2query
-
 on:
   push:
     branches:
@@ -7,7 +6,6 @@ on:
   pull_request:
     branches:
       - main
-
 jobs:
   build:
     name: hist2query test on ${{ matrix.os }} with ${{ matrix.python-version }}
@@ -17,6 +15,15 @@ jobs:
         os: ["ubuntu-latest"]
         python-version: ["3.11", "3.12"]
     steps:
+      - uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: true
+          swap-storage: false
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:

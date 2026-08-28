@@ -34,11 +34,18 @@ def configure_parser(parser):
     parser.add_argument('-t', "--hf-token", dest="token", type=str, default=None,
                         help="Hugging Face access token.")
 
+    parser.add_argument('-in', "--types-include", dest="types_include", type=str, default=None,
+                        help="Optional list of project or tissue types to include. Should be separated by commas"
+                             "i.e. Kidney,Prostate,Ovary or KIRP,PRAD,OV. If not specified, all project and tissue types are used.")
+
+    parser.add_argument('-ex', "--types-exclude", dest="types_exclude", type=str, default=None,
+                        help="Optional list of project or tissue types to exclude. Should be separated by commas"
+                             "i.e. Kidney,Prostate,Ovary or KIRP,PRAD,OV. If not specified, all project and tissue types are used.")
+
     parser.set_defaults(func=run)
 
 
 def run(args):
 
-    add_to_index(args.repo, args.index_in, args.index_out, args.metadata_out,
-                args.slide_prop, args.patches_per_slide, args.min_slides_project,
-                args.max_slides_project, args.workers, args.token)
+    add_to_index(args.repo, args.index_in, args.index_out, args.metadata_out, args.slide_prop, args.patches_per_slide,
+                args.min_slides_project, args.max_slides_project, args.workers, args.token, True, args.types_include, args.types_exclude)

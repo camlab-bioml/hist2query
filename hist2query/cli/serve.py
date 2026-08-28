@@ -1,19 +1,22 @@
 import uvicorn
-from hist2query.app.app import (
-    create_app,
-    load_uni_model,
+from hist2query.app.utils import (
+    load_hf_model,
     load_index,
     load_metadata)
+from hist2query.app.app import create_app
+from hist2query.utils import str_or_none
 
 def configure_parser(parser):
 
     parser.add_argument('-md', "--model", default="hf-hub:MahmoodLab/UNI2-h",
-        help="UNI model name or path")
+        help="UNI model name or path. Default is hf-hub:MahmoodLab/UNI2-h")
+    
+    parser.add_argument('-i', "--index", type=str_or_none, default="None",
+        help="Path to FAISS index. If not specified, then only Prism2 chat is available on CUDA.")
 
-    parser.add_argument('-i', "--index", required=True, help="Path to FAISS index")
-
-    parser.add_argument('-m', "--metadata", required=True,
-        help="Path to metadata parquet file matching the --index.")
+    parser.add_argument('-m', "--metadata", type=str_or_none, default="None",
+        help="Path to metadata parquet file matching the --index."
+             " If not specified, then only Prism2 chat is available on CUDA.")
 
     parser.add_argument('-hs', "--host", default="127.0.0.1")
 
@@ -22,13 +25,17 @@ def configure_parser(parser):
     parser.add_argument('-w', "--workers", default=1, type=int,
         help="Number of workers to use for fastAPI.")
 
+    parser.add_argument('-pr', "--use-prism2", action="store_true",
+        help="Enable prism2 for the chat endpoint. Requires GPU deployment.", dest="prism2")
+
     parser.set_defaults(func=run)
 
 def run(args):
 
     app = create_app(
-        model_loader=lambda: load_uni_model(args.model),
+        model_loader=lambda: load_hf_model(args.model),
         index_loader=lambda: load_index(args.index),
-        metadata_loader=lambda: load_metadata(args.metadata))
+        metadata_loader=lambda: load_metadata(args.metadata),
+        enable_prism2=args.prism2)
 
     uvicorn.run(app, host=args.host, port=args.port, workers=args.workers)

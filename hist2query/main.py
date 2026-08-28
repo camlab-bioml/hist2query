@@ -3,9 +3,8 @@ import argparse
 from hist2query.cli import (
     serve,
     train,
-    add,
-    # inspect
-    )
+    add)
+
 from hist2query._version import __version__
 
 def main():
@@ -38,15 +37,9 @@ def main():
         help="Add embeddings to a trained index.")
     add.configure_parser(add_parser)
 
-    inspect_parser = subparsers.add_parser(
-        "inspect",
-        help="Inspect an index")
-
-    # inspect.configure_parser(inspect_parser)
-
     args = parser.parse_args()
 
     args.func(args)
 
 if __name__ == "__main__":
-    main()
+    main() # pragma: no cover

@@ -1,8 +1,10 @@
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
+    build-essential \
+    ninja-build \
     software-properties-common \
     git \
     libmysqlclient-dev \
@@ -27,14 +29,28 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY . .
 
-RUN python3.11 -m pip install --upgrade pip
+RUN python3.11 -m pip install --upgrade pip setuptools wheel packaging
 
 RUN python3.11 -m pip install .
 
-RUN python3.11 -m pip install -U timm
+RUN python3.11 -m pip install numpy==1.26.4 psutil
+
+RUN python3.11 -m pip install \
+    torch==2.6.0 \
+    torchvision==0.21.0
+
+RUN python3.11 -m pip install transformers==4.51.0 accelerate==1.2.1
+
+RUN python3.11 -m pip install flash-attn==2.7.4.post1 \
+    --no-build-isolation
+
+RUN python3.11 -m pip install -U timm httpx
 
 ENV DISPLAY=:0.0
 ENV DLClight=True
+
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH=/usr/local/cuda/bin:${PATH}
 
 EXPOSE 6000
 EXPOSE 7000
