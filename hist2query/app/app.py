@@ -64,7 +64,7 @@ def create_app(model_loader: Callable[[], Tuple[
         yield
 
     app = FastAPI(title="hist2query", lifespan=lifespan)
-
+    
     @app.post("/search")
     async def search(
             patch: UploadFile = File(...),
@@ -78,11 +78,11 @@ def create_app(model_loader: Callable[[], Tuple[
         tile_rgb = await decode_patch(patch)
 
         batch = preprocess_tiles(make_tiles(tile_rgb))
-        # a single transform per image is faster, but results seem notieceably worse
-        # batch = app.state.uni2_transform(Image.fromarray(tile_rgb)).unsqueeze(dim=0)
-        batch = batch.to(app.state.device)
 
         async with app.state.inference_lock:
+            # a single transform per image is faster, but results seem notieceably worse
+            # batch = app.state.uni2_transform(Image.fromarray(tile_rgb)).unsqueeze(dim=0)
+            batch = batch.to(app.state.device)
             with torch.inference_mode():
                 embedding = app.state.uni2_model(batch)
 
@@ -136,8 +136,8 @@ def create_app(model_loader: Callable[[], Tuple[
             tile_batch.append(output[:, 0])
 
         tile_batch = torch.cat(tile_batch, dim=0)
-        batch = app.state.prism2_processor([tile_batch]).to(app.state.device)
         async with app.state.inference_lock:
+            batch = app.state.prism2_processor([tile_batch]).to(app.state.device)
             with torch.autocast(app.state.device, torch.bfloat16):
                 answers = prism2_prompt_type(app.state.prism2_model, str(params.question),
                                          batch, int(params.max_token_response),
