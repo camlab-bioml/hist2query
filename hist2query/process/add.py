@@ -59,8 +59,11 @@ def add_to_index(repo_hf: str="W8Yi/tcga-wsi-uni2h-features",
                                         embedding_index + len(embeddings),
                                         dtype=np.int64)
 
-                        index.add_with_ids(embeddings, ids)
+                        embeddings = np.asarray(embeddings, dtype=np.float32)
+                        faiss.normalize_L2(embeddings)
 
+                        index.add_with_ids(embeddings, ids)
+                        
                         df = pl.DataFrame({"index": ids,
                             "project": result["project"],
                             "slide": result["slide"],
@@ -88,5 +91,5 @@ def add_to_index(repo_hf: str="W8Yi/tcga-wsi-uni2h-features",
                         os.remove(local_path)
     
     if writer is not None: writer.close()
-
+    
     faiss.write_index(index, output_index)
