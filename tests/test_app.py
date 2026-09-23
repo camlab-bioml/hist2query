@@ -138,6 +138,21 @@ def test_prism2_chat_open_yes_no(client_prism2):
     assert 'response' in response.json()
     assert response.json()['response'] == ['No (P=0.6348)']
 
+def test_prism2_chat_empty_array(client_prism2):
+
+    payload = serialize_crop(np.random.randint(0, 255,
+        size=(10, 10, 3), dtype=np.uint8))
+
+    response = client_prism2.post("/chat",
+                                     files={"patch": ("patch.npz",
+            payload, "application/octet-stream")},
+            data={'question': "Is cancer present?",
+                  'binary_threshold_for_yes': '0.7'})
+
+    assert response.status_code == 200
+    assert 'response' in response.json()
+    assert 'Error: no tiles computed.' in response.json()['response']
+    
 def test_prism2_chat_open_yes_no_raw(client_prism2):
 
     payload = serialize_crop(np.random.randint(0, 255,

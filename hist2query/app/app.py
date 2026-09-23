@@ -4,7 +4,6 @@ import os
 import asyncio
 from collections.abc import Callable
 from contextlib import asynccontextmanager
-from PIL import Image
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 import torch
 import timm
@@ -20,7 +19,9 @@ from hist2query.app.utils import (
     decode_patch,
     load_hf_model,
     load_prism2_processing,
-    prism2_prompt_type, Prism2ChatRequestParams)
+    prism2_prompt_type,
+    Prism2ChatRequestParams,
+    extract_virchow2_embeddings)
 
 def create_app(model_loader: Callable[[], Tuple[
                timm.models.vision_transformer.VisionTransformer,
@@ -53,7 +54,7 @@ def create_app(model_loader: Callable[[], Tuple[
             app.state.prism2_model, app.state.prism2_processor = load_prism2_processing()
             app.state.prism2_model.eval()
             app.state.prism2_model.to(app.state.device)
-
+        
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                "tcga_uni_slide_filenames.pkl"), "rb") as slide_names_open:
             # use the pkl as a package data file and map the slide URLs to avoid nested per request GDC portal API calls
@@ -64,7 +65,7 @@ def create_app(model_loader: Callable[[], Tuple[
         yield
 
     app = FastAPI(title="hist2query", lifespan=lifespan)
-
+    
     @app.post("/search")
     async def search(
             patch: UploadFile = File(...),
@@ -76,13 +77,14 @@ def create_app(model_loader: Callable[[], Tuple[
                                        "was not supplied to the hist2query deployment.")
 
         tile_rgb = await decode_patch(patch)
+        tile_rgb = make_tiles(tile_rgb)
 
-        batch = preprocess_tiles(make_tiles(tile_rgb))
-        # a single transform per image is faster, but results seem notieceably worse
-        # batch = app.state.uni2_transform(Image.fromarray(tile_rgb)).unsqueeze(dim=0)
-        batch = batch.to(app.state.device)
+        batch = await asyncio.to_thread(preprocess_tiles,tile_rgb)
 
         async with app.state.inference_lock:
+            # a single transform per image is faster, but results seem notieceably worse
+            # batch = app.state.uni2_transform(Image.fromarray(tile_rgb)).unsqueeze(dim=0)
+            batch = batch.to(app.state.device)
             with torch.inference_mode():
                 embedding = app.state.uni2_model(batch)
 
@@ -128,21 +130,18 @@ def create_app(model_loader: Callable[[], Tuple[
 
         tile_rgb = make_tiles(tile_rgb)
 
-        tile_batch = []
-        # cannot use the same tile generation function as for uni2 as only the class token is pulled from Virchow2
-        for tile_rgb in tile_rgb:
-            output = app.state.virchow2_model(app.state.virchow2_transform(
-                Image.fromarray(tile_rgb).convert("RGB")).unsqueeze(0))
-            tile_batch.append(output[:, 0])
-
-        tile_batch = torch.cat(tile_batch, dim=0)
-        batch = app.state.prism2_processor([tile_batch]).to(app.state.device)
-        async with app.state.inference_lock:
-            with torch.autocast(app.state.device, torch.bfloat16):
-                answers = prism2_prompt_type(app.state.prism2_model, str(params.question),
-                                         batch, int(params.max_token_response),
-                                         params.raw_scores_binary, params.binary_threshold_for_yes)
-        del tile_rgb, tile_batch, batch
-        return {'response': answers}
+        tile_batch = await asyncio.to_thread(extract_virchow2_embeddings,
+                app.state.virchow2_model, app.state.virchow2_transform, tile_rgb)
+        if tile_batch is not None:
+            batch = app.state.prism2_processor([tile_batch])
+            async with app.state.inference_lock:
+                batch = batch.to(app.state.device)
+                with torch.autocast(app.state.device, torch.bfloat16):
+                    answers = prism2_prompt_type(app.state.prism2_model, str(params.question),
+                                                 batch, int(params.max_token_response),
+                                                 params.raw_scores_binary, params.binary_threshold_for_yes)
+            del tile_rgb, tile_batch, batch
+            return {'response': answers}
+        return {'response': 'Error: no tiles computed.'}
 
     return app
