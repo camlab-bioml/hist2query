@@ -256,3 +256,19 @@ def prism2_prompt_type(model: Any, question: str,
 
     return model.get_response(**batch,
                 prompt=str(question), max_new_tokens=max_tokens_response)
+
+
+def extract_virchow2_embeddings(model: timm.models.vision_transformer.VisionTransformer,
+                                transform: torchvision.transforms.transforms.Compose,
+                                tiles: Union[list, np.ndarray]) -> torch.tensor:
+    """
+    Get Virchow2 embeddings computed on CPU for the Prism2 processor and model.
+    Uses only the class token for the final concatenation
+    """
+    tile_batch = []
+
+    for tile in tiles:
+        output = model(transform(Image.fromarray(tile.astype(np.uint8)).convert("RGB")).unsqueeze(0))
+        tile_batch.append(output[:, 0])
+
+    return torch.cat(tile_batch, dim=0) if tile_batch else None

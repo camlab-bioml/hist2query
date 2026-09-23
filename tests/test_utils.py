@@ -2,7 +2,8 @@ import numpy as np
 from hist2query.utils import (
     set_tcga_projects_include,
     TCGA_STUDY_CODES)
-from hist2query.app.utils import make_tiles
+from hist2query.app.utils import make_tiles, extract_virchow2_embeddings
+from conftest import MockVirchow2Model, MockUNITransform
 
 def test_make_tiles():
     tiles = make_tiles(np.random.randint(0, 255, size=(448, 448, 3)))
@@ -25,6 +26,12 @@ def test_make_tiles():
 
     no_tiles = make_tiles(np.random.randint(0, 255, size=(1, 1, 3)), stride=100)
     assert no_tiles.shape[0] == 0
+
+def test_virchow2_tile_generation():
+    tiles = make_tiles(np.random.randint(0, 255, size=(448, 448, 3)))
+    virchow2_embeddings = extract_virchow2_embeddings(MockVirchow2Model(), MockUNITransform(), tiles)
+    assert virchow2_embeddings.shape == (4, 1280)
+    assert extract_virchow2_embeddings(MockVirchow2Model(), MockUNITransform(), []) is None
 
 def test_set_tcga_projects():
 
