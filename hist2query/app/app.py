@@ -53,7 +53,7 @@ def create_app(model_loader: Callable[[], Tuple[
             app.state.prism2_model, app.state.prism2_processor = load_prism2_processing()
             app.state.prism2_model.eval()
             app.state.prism2_model.to(app.state.device)
-
+        
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                "tcga_uni_slide_filenames.pkl"), "rb") as slide_names_open:
             # use the pkl as a package data file and map the slide URLs to avoid nested per request GDC portal API calls
@@ -136,8 +136,9 @@ def create_app(model_loader: Callable[[], Tuple[
             tile_batch.append(output[:, 0])
 
         tile_batch = torch.cat(tile_batch, dim=0)
+        batch = app.state.prism2_processor([tile_batch])
         async with app.state.inference_lock:
-            batch = app.state.prism2_processor([tile_batch]).to(app.state.device)
+            batch = batch.to(app.state.device)
             with torch.autocast(app.state.device, torch.bfloat16):
                 answers = prism2_prompt_type(app.state.prism2_model, str(params.question),
                                          batch, int(params.max_token_response),
