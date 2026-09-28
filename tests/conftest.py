@@ -24,7 +24,11 @@ class MockUniModel:
 
 class MockVirchow2Model:
 
+    def __init__(self):
+        self.call_count = 0
+
     def __call__(self, x):
+        self.call_count += 1
         return torch.ones((1, len(x), 1280))
 
     def to(self, device: str):
@@ -131,12 +135,12 @@ def client_no_index(mock_uni2_loader, mock_index_loader_none, mock_metadata_load
     with TestClient(app) as client:
         yield client
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def client_prism2(mock_uni2_loader, mock_index_loader, mock_metadata_loader):
+    mock_virchow2 = MockVirchow2Model()
     with patch("hist2query.app.app.torch.cuda.is_available", return_value=True):
-        with patch("hist2query.app.app.load_hf_model", return_value = (MockVirchow2Model(), MockUNITransform(), "cpu")):
+        with patch("hist2query.app.app.load_hf_model", return_value = (mock_virchow2, MockUNITransform(), "cpu")):
             with patch("hist2query.app.app.load_prism2_processing", return_value = (MockPrism2Model(), MockPrism2Transform())):
                 app = create_app(mock_uni2_loader, mock_index_loader, mock_metadata_loader, True)
-
                 with TestClient(app) as client:
-                    yield client
+                    yield client, mock_virchow2

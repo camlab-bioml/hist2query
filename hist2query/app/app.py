@@ -1,3 +1,4 @@
+import hashlib
 from typing import Tuple
 import pickle
 import os
@@ -11,6 +12,7 @@ import polars as pl
 import faiss
 import torch.nn.functional as tf
 import torchvision
+from cachetools import LRUCache
 from hist2query.app.utils import (
     TCGAUNI2QueryRequestParams,
     TCGA_RESPONSE_COL_HEADERS,
@@ -21,7 +23,7 @@ from hist2query.app.utils import (
     load_prism2_processing,
     prism2_prompt_type,
     Prism2ChatRequestParams,
-    extract_virchow2_embeddings)
+    extract_virchow2_embeddings, get_image_cache_key)
 
 def create_app(model_loader: Callable[[], Tuple[
                timm.models.vision_transformer.VisionTransformer,
@@ -61,6 +63,8 @@ def create_app(model_loader: Callable[[], Tuple[
             app.state.tcga_uni_slide_filenames = pickle.load(slide_names_open)
 
         app.state.inference_lock = asyncio.Lock()
+        app.state.virchow2_cache = LRUCache(maxsize=100)
+        app.state.uni2_cache = LRUCache(maxsize=100)
 
         yield
 
@@ -77,26 +81,30 @@ def create_app(model_loader: Callable[[], Tuple[
                                        "was not supplied to the hist2query deployment.")
 
         tile_rgb = await decode_patch(patch)
-        tile_rgb = make_tiles(tile_rgb)
+        cache_key = get_image_cache_key(tile_rgb)
+        embedding = app.state.uni2_cache.get(cache_key)
+        if embedding is None:
+            tile_rgb = make_tiles(tile_rgb)
+            batch = await asyncio.to_thread(preprocess_tiles, tile_rgb)
 
-        batch = await asyncio.to_thread(preprocess_tiles,tile_rgb)
+            async with app.state.inference_lock:
+                # a single transform per image is faster, but results seem notieceably worse
+                # batch = app.state.uni2_transform(Image.fromarray(tile_rgb)).unsqueeze(dim=0)
+                batch = batch.to(app.state.device)
+                with torch.inference_mode():
+                    embedding = app.state.uni2_model(batch)
 
-        async with app.state.inference_lock:
-            # a single transform per image is faster, but results seem notieceably worse
-            # batch = app.state.uni2_transform(Image.fromarray(tile_rgb)).unsqueeze(dim=0)
-            batch = batch.to(app.state.device)
-            with torch.inference_mode():
-                embedding = app.state.uni2_model(batch)
+            # normalization must match what was used to create the index
+            embedding = embedding.mean(dim=0)
+            embedding = tf.normalize(embedding, p=2, dim=0)
 
-        # normalization must match what was used to create the index
-        embedding = embedding.mean(dim=0)
-        embedding = tf.normalize(embedding, p=2, dim=0)
-
-        embedding = (embedding.unsqueeze(0).cpu().numpy().astype("float32"))
+            embedding = (embedding.unsqueeze(0).cpu().numpy().astype("float32"))
+            app.state.uni2_cache[cache_key] = embedding
+            del batch
 
         scores, indices = app.state.index.search(embedding, params.k)
 
-        del tile_rgb, batch, embedding
+        del tile_rgb, embedding
 
         resp = {'hits': None, 'url': None}
         indices_use = indices[0][indices[0] >= 0]
@@ -127,11 +135,16 @@ def create_app(model_loader: Callable[[], Tuple[
                        "Prism2 was not enabled with `--use-prism2`.")
 
         tile_rgb = await decode_patch(patch)
-
-        tile_rgb = make_tiles(tile_rgb)
-
-        tile_batch = await asyncio.to_thread(extract_virchow2_embeddings,
+        cache_key = get_image_cache_key(tile_rgb)
+        tile_batch = app.state.virchow2_cache.get(cache_key)
+        if tile_batch is None:
+            tile_rgb = make_tiles(tile_rgb)
+            tile_batch = await asyncio.to_thread(extract_virchow2_embeddings,
                 app.state.virchow2_model, app.state.virchow2_transform, tile_rgb)
+            if tile_batch is not None:
+                tile_batch = tile_batch.detach().cpu()
+                app.state.virchow2_cache[cache_key] = tile_batch
+            del tile_rgb
         if tile_batch is not None:
             batch = app.state.prism2_processor([tile_batch])
             async with app.state.inference_lock:
@@ -140,7 +153,7 @@ def create_app(model_loader: Callable[[], Tuple[
                     answers = prism2_prompt_type(app.state.prism2_model, str(params.question),
                                                  batch, int(params.max_token_response),
                                                  params.raw_scores_binary, params.binary_threshold_for_yes)
-            del tile_rgb, tile_batch, batch
+            del tile_batch, batch
             return {'response': answers}
         return {'response': 'Error: no tiles computed.'}
 

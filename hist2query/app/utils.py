@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from typing import Optional, Any
 from typing import Union
@@ -219,12 +220,26 @@ def load_metadata(path: Union[str, Path, None]=None) -> Union[pl.DataFrame, pl.L
     return pl.scan_parquet(path)
 
 async def decode_patch(patch: UploadFile):
+    """
+    Decode an image patch from a request, either in PNG or byte format, into
+    a numpy RGB array
+    """
     if str(patch.filename).endswith("png"):
         return np.asarray(Image.open(patch.file).convert("RGB"))
     else:
         patch_bytes = await patch.read()
         arr = np.load(io.BytesIO(patch_bytes))
         return np.array(arr["data"])
+
+def get_image_cache_key(arr: np.ndarray) -> bytes:
+    """
+    Create a `hashlib` compatible hash key from a numpy RGB patch array
+    """
+    h = hashlib.sha256()
+    h.update(arr.tobytes())
+    h.update(str(arr.shape).encode())
+    h.update(str(arr.dtype).encode())
+    return h.digest()
 
 _PRISM2_YES_NO_IDENTIFIERS = ['are', 'is', 'can', 'could']
 
