@@ -111,11 +111,12 @@ def test_uni2_query_no_index(client_no_index):
 
 def test_prism2_chat_open_response(client_prism2):
 
+    client, mock_virchow2 = client_prism2
+
     payload = serialize_crop(np.random.randint(0, 255,
         size=(224, 224, 3), dtype=np.uint8))
 
-    response = client_prism2.post("/chat",
-                                     files={"patch": ("patch.npz",
+    response = client.post("/chat", files={"patch": ("patch.npz",
             payload, "application/octet-stream")},
             data={'question': "What type of tissue is this?"})
 
@@ -125,11 +126,11 @@ def test_prism2_chat_open_response(client_prism2):
 
 def test_prism2_chat_open_yes_no(client_prism2):
 
+    client, mock_virchow2 = client_prism2
     payload = serialize_crop(np.random.randint(0, 255,
         size=(224, 224, 3), dtype=np.uint8))
 
-    response = client_prism2.post("/chat",
-                                     files={"patch": ("patch.npz",
+    response = client.post("/chat", files={"patch": ("patch.npz",
             payload, "application/octet-stream")},
             data={'question': "Is cancer present?",
                   'binary_threshold_for_yes': '0.7'})
@@ -140,11 +141,11 @@ def test_prism2_chat_open_yes_no(client_prism2):
 
 def test_prism2_chat_empty_array(client_prism2):
 
+    client, mock_virchow2 = client_prism2
     payload = serialize_crop(np.random.randint(0, 255,
         size=(10, 10, 3), dtype=np.uint8))
 
-    response = client_prism2.post("/chat",
-                                     files={"patch": ("patch.npz",
+    response = client.post("/chat", files={"patch": ("patch.npz",
             payload, "application/octet-stream")},
             data={'question': "Is cancer present?",
                   'binary_threshold_for_yes': '0.7'})
@@ -153,13 +154,13 @@ def test_prism2_chat_empty_array(client_prism2):
     assert 'response' in response.json()
     assert 'Error: no tiles computed.' in response.json()['response']
     
-def test_prism2_chat_open_yes_no_raw(client_prism2):
+def test_prism2_chat_open_yes_no_cache(client_prism2):
 
+    client, mock_virchow2 = client_prism2
     payload = serialize_crop(np.random.randint(0, 255,
         size=(224, 224, 3), dtype=np.uint8))
 
-    response = client_prism2.post("/chat",
-                                     files={"patch": ("patch.npz",
+    response = client.post("/chat", files={"patch": ("patch.npz",
             payload, "application/octet-stream")},
             data={'question': "Is cancer present?",
                   'raw_scores_binary': True})
@@ -167,6 +168,16 @@ def test_prism2_chat_open_yes_no_raw(client_prism2):
     assert response.status_code == 200
     assert 'response' in response.json()
     assert response.json()['response'] == [0.6348]
+
+    response_2 = client.post("/chat", files={"patch": ("patch.npz",
+                payload, "application/octet-stream")},
+                data={'question': "Is cancer present?", 'raw_scores_binary': True})
+
+    assert response_2.status_code == 200
+    assert 'response' in response_2.json()
+    assert response_2.json()['response'] == [0.6348]
+
+    assert mock_virchow2.call_count == 1
 
 def test_prism2_chat_no_cuda(client_no_prism2):
 
@@ -179,7 +190,6 @@ def test_prism2_chat_no_cuda(client_no_prism2):
             data={'question': "What type of tissue is this?"})
 
     assert response.status_code == 503
-
 
 @patch("hist2query.cli.serve.uvicorn.run")
 @patch("hist2query.cli.serve.create_app")
