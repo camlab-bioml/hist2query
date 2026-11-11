@@ -27,7 +27,7 @@ dependencies = [
     "networkx",
     "numpy",
     "polars",
-    "pyarrow",
+    "pyarrow<=25.0.1",
     "python-multipart",
     "requests",
     "timm",

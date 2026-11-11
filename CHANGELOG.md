@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-11
+
+### Changed
+
+- Fix `pyarrow` version to be compatible with 
+`Uni2-h` numpy requirements when using `Prism2`
+
 ## [0.3.1] - 2026-09-28
 
 ### Changed
